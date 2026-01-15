@@ -1,0 +1,37 @@
+name: ats-doctor
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ats}
+      POSTGRES_USER: ${POSTGRES_USER:-ats}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ats}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ats} -d ${POSTGRES_DB:-ats}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Optional AI gateway (deployment-only, PRD §6.3). Enable with:
+  #   docker compose --profile omniroute up
+  omniroute:
+    profiles: ["omniroute"]
+    image: ghcr.io/omniroute/omniroute:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./omniroute:/config
+
+  # Optional local models (PRD §6.3). Enable with:
+  #   docker compose --profile local up
+  ollama:
+    profiles: ["local"]
+    image: ollama/ollama:latest
+    volumes:
+      - ./ollama:/root/.ollama
+
+volumes:
+  pgdata:
