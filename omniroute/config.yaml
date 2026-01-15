@@ -1,0 +1,35 @@
+# OmniRoute gateway configuration — DEPLOYMENT-ONLY (PRD §6.3, DEC-005).
+# Application/domain code never reads this file and never names a model.
+# Profile -> provider/model mapping is the ONLY place models appear.
+
+models:
+  local:
+    type: ollama
+    base_url: http://ollama:11434
+    model: llama3.2:latest  # Any local TEXT/instruction model (llama3.2, phi3, mistral...) — not llava (vision)
+
+  deepseek:                 # Default external model
+    type: deepseek
+    api_key: ${DEEPSEEK_API_KEY}
+    model: deepseek-v4-flash
+
+  gemini:
+    type: google
+    api_key: ${GEMINI_API_KEY}
+    model: gemini-1.5-flash
+
+  claude:
+    type: anthropic
+    api_key: ${ANTHROPIC_API_KEY}
+    model: claude-3-5-sonnet
+
+  openai:
+    type: openai
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4o-mini
+
+profiles:
+  cheap:   { provider: deepseek, model: deepseek-v4-flash }
+  quality: { provider: deepseek, model: deepseek-v4-flash }
+  local:   { provider: local,    model: llama3.2:latest }
+  private: { provider: deepseek, model: deepseek-v4-flash }
