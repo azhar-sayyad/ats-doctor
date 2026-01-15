@@ -1,0 +1,34 @@
+Jane Doe
+Senior Backend Engineer
+jane.doe@example.com | +1 (234) 567-890 | San Francisco, CA
+linkedin.com/in/janedoe | github.com/janedoe
+
+SUMMARY
+Senior Software Engineer with 5+ years building distributed systems and
+scalable backend services.
+
+SKILLS
+Python (5 years), FastAPI (3 years), PostgreSQL (4 years), Redis (2 years),
+Docker (3 years), Kafka (2 years)
+
+EXPERIENCE
+
+Tech Corp — Senior Backend Engineer (2020-01 to present)
+Remote
+- Built FastAPI services processing 2M events/day.
+- Led a team of 4 engineers delivering the fraud detection platform.
+- Reduced p99 latency by 40% through query optimization and caching.
+
+Acme Inc — Backend Engineer (2018-01 to 2019-12)
+San Francisco, CA
+- Designed and shipped a REST API used by 20 internal teams.
+- Improved deployment pipeline, cutting release time from hours to minutes.
+
+PROJECTS
+
+Distributed Queue System — Scalable task queue for event ingestion.
+Technologies: Python, Redis. Outcome: Reduced latency by 40%.
+
+EDUCATION
+
+Stanford University — MSc Computer Science (2016-01 to 2018-01)
