@@ -1,0 +1,46 @@
+# ── Environment & secrets ──────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Local data (backend-only mount; keep .gitkeep) ────────────────
+data/*
+!data/.gitkeep
+!data/samples/
+data/resumes/*
+!data/resumes/.gitkeep
+data/jobs/*
+!data/jobs/.gitkeep
+data/analyses/*
+!data/analyses/.gitkeep
+data/outputs/*
+!data/outputs/.gitkeep
+
+# ── Node / Next.js ─────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# ── Java / Maven ───────────────────────────────────────────────────
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.iml
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+
+# ── AI runtimes ────────────────────────────────────────────────────
+ollama/models/
+
+# ── OS ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
