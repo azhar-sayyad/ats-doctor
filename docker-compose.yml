@@ -1,0 +1,74 @@
+name: ats-doctor
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ats}
+      POSTGRES_USER: ${POSTGRES_USER:-ats}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ats}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ats} -d ${POSTGRES_DB:-ats}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend          # Spring Boot (Java 21)
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8000
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/ats}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ats}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-ats}
+      SPRING_AI_OPENAI_BASE_URL: ${SPRING_AI_OPENAI_BASE_URL:-http://omniroute:8080}
+      SPRING_AI_OPENAI_API_KEY: ${SPRING_AI_OPENAI_API_KEY:-placeholder}
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:-deepseek-v4-flash}
+      ATS_DOCTOR_AI_MODE: ${ATS_DOCTOR_AI_MODE:-stub}
+      # SPRINT-01+: the resume pipeline needs the DB. Disable only for
+      # boot-without-database scenarios (TASK-006 unit tests).
+      ATS_DOCTOR_PERSISTENCE_ENABLED: ${ATS_DOCTOR_PERSISTENCE_ENABLED:-true}
+      # File storage roots live under the mounted ./data volume so artifacts
+      # persist on the host (backend is the ONLY service with filesystem access).
+      ATS_DOCTOR_RESUME_DIR: ${ATS_DOCTOR_RESUME_DIR:-/data/resumes}
+      ATS_DOCTOR_JOBS_DIR: ${ATS_DOCTOR_JOBS_DIR:-/data/jobs}
+      ATS_DOCTOR_EXPORTS_DIR: ${ATS_DOCTOR_EXPORTS_DIR:-/data/exports}
+    volumes:
+      - ./data:/data          # backend is the ONLY service with filesystem access
+
+  frontend:
+    build: ./frontend         # Next.js 14 (UI only)
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    depends_on:
+      - backend
+    # No filesystem volume: the frontend only talks to the backend API.
+
+  # Optional AI gateway (deployment-only, PRD §6.3). Enable with:
+  #   docker compose --profile omniroute up
+  omniroute:
+    profiles: ["omniroute"]
+    image: ghcr.io/omniroute/omniroute:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./omniroute:/config
+
+  # Optional local models (PRD §6.3). Enable with:
+  #   docker compose --profile local up
+  ollama:
+    profiles: ["local"]
+    image: ollama/ollama:latest
+    volumes:
+      - ./ollama:/root/.ollama
+
+volumes:
+  pgdata:
