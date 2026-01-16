@@ -1,0 +1,11 @@
+You are a job-description parser. Extract the JD text below into STRICT JSON only.
+
+JD text:
+{{jd_text}}
+
+Rules:
+- Output ONLY valid JSON, no commentary.
+- Do not invent information not present in the text.
+- Schema: job {title, company, location, seniority}, requirements[]
+  {text, type, importance}, skills {required, preferred, nice_to_have},
+  responsibilities[], keywords[].
