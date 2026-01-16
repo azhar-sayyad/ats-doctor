@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: ats-doctor-backend
+  servlet:
+    multipart:
+      # Resume uploads: PDF/DOCX/TXT ≤10MB (FEAT-010, TASK-027).
+      max-file-size: 10MB
+      max-request-size: 12MB
+  web:
+    cors:
+      # Dev-only: allow the Next.js frontend (host + container ports) to call
+      # the API from the browser. Tighten before any non-local deployment.
+      allowed-origins:
+        - "http://localhost:3000"
+        - "http://localhost:3002"
+        - "http://127.0.0.1:3000"
+        - "http://127.0.0.1:3002"
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: "*"
+  ai:
+    openai:
+      base-url: ${SPRING_AI_OPENAI_BASE_URL:http://localhost:8080}
+      api-key: ${SPRING_AI_OPENAI_API_KEY:placeholder}
+      chat:
+        options:
+          model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:deepseek-v4-flash}
+  mvc:
+    # RFC 7807 ProblemDetail for all exceptions (07-api-contract, PRD §8).
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8000}
+
+ats:
+  doctor:
+    ai:
+      # stub (default) | omniroute
+      mode: ${ATS_DOCTOR_AI_MODE:stub}
+      # Facade retry/backoff budget (FEAT-005, TASK-016)
+      timeout-seconds: ${ATS_DOCTOR_AI_TIMEOUT_SECONDS:30}
+      max-retries: ${ATS_DOCTOR_AI_RETRY_MAX_ATTEMPTS:3}
+      backoff-base-ms: ${ATS_DOCTOR_AI_BACKOFF_BASE_MS:200}
+      # dev/test degrade to a labeled stub result on total failure
+      degrade-to-stub: ${ATS_DOCTOR_AI_DEGRADE_TO_STUB:true}
+      # Default single-fallback per profile (PRD §6.4); override with
+      # PROFILE_<NAME>_FALLBACK, e.g. PROFILE_QUALITY_FALLBACK=local.
+      fallback:
+        quality: ${PROFILE_QUALITY_FALLBACK:local}
+    persistence:
+      # false (default): app boots without a database (TASK-006).
+      # true: Spring Boot wires Postgres (spring.datasource.*) + Flyway + JPA.
+      enabled: ${ATS_DOCTOR_PERSISTENCE_ENABLED:false}
+    matching:
+      # Semantic (embedding) matching hook — disabled in the MVP (TASK-051).
+      # When true the pipeline consults SemanticMatcher, which is a no-op stub
+      # until FEAT-049 lands (pgvector + embeddings, SPRINT-08+).
+      semantic-enabled: ${ATS_DOCTOR_MATCHING_SEMANTIC_ENABLED:false}
+    storage:
+      # Resume file storage root (FEAT-010, TASK-028); path-traversal-safe.
+      resume-dir: ${ATS_DOCTOR_RESUME_DIR:data/resumes}
+      # JD file storage root (FEAT-017/018, TASK-039/040).
+      jobs-dir: ${ATS_DOCTOR_JOBS_DIR:data/jobs}
+      # Tailored-resume export artifacts (SPRINT-06: FEAT-037, TASK-079/080/081).
+      exports-dir: ${ATS_DOCTOR_EXPORTS_DIR:data/exports}
