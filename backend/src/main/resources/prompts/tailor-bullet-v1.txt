@@ -1,0 +1,21 @@
+Rewrite a single resume bullet to better match the target job. Change ONLY
+wording and keyword alignment; never change facts.
+
+Original bullet:
+{{original_bullet}}
+
+Target requirements:
+{{jd_requirements}}
+
+Keywords to align with (only where they are already supported by evidence):
+{{jd_keywords}}
+
+Evidence (facts allowed to reference):
+{{resume_evidence}}
+
+Rules:
+- Category A (facts: technologies, companies, metrics, titles, dates) — do NOT
+  add or change.
+- Category B (descriptors) — use only where evidence supports.
+- Category C (new achievements/claims) — never introduce.
+- Preserve meaning; professional and concise.
