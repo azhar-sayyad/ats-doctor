@@ -1,0 +1,12 @@
+You are a resume parser. Extract the resume text below into STRICT JSON only.
+
+Resume text:
+{{resume_text}}
+
+Rules:
+- Output ONLY valid JSON, no commentary.
+- Do not invent information not present in the text.
+- Schema: basics {name, email, phone, location, linkedin, github}, summary,
+  skills[], experience[] {company, title, start, end, bullets[]},
+  projects[] {name, description, technologies}, education[]
+  {institution, degree, field, start, end}.
