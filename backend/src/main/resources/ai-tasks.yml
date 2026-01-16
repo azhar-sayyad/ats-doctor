@@ -1,0 +1,9 @@
+# Application-level task -> profile mapping (PRD §6.2, DEC-004).
+# Exact model names live ONLY in deployment config (omniroute/config.yaml),
+# never here and never in application code.
+ai_tasks:
+  resume_parser:          { profile: cheap }
+  jd_parser:              { profile: cheap }
+  requirement_extraction: { profile: cheap }
+  resume_tailoring:       { profile: quality }
+  fact_validation:        { profile: quality }
