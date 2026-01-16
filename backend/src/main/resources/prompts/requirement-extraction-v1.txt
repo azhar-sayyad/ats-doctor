@@ -1,0 +1,12 @@
+You extract discrete requirements from a structured job description. Output a
+JSON array of requirement rows only.
+
+Structured JD:
+{{jd_json}}
+
+Schema per row: {text, type, importance, keywords}.
+
+Rules:
+- Output ONLY valid JSON.
+- type in {skill, experience, education, certification, responsibility}.
+- importance in {required, preferred, nice_to_have}.
