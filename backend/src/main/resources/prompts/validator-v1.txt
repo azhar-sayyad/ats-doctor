@@ -1,0 +1,25 @@
+Validate that a tailored resume contains no fabricated claims versus the
+original. Output STRICT JSON only.
+
+Original resume:
+{{original_resume}}
+
+Tailored resume:
+{{tailored_resume}}
+
+Evidence (facts the tailored text may reference):
+{{resume_evidence}}
+
+Claim category under validation:
+{{claim_category}}
+
+Rules:
+- Category A facts must exist in the original (technologies, companies,
+  metrics, titles, dates).
+- Category B descriptors must be evidence-supported.
+- Category C: no new achievements/claims.
+- Every issue must be grounded in the evidence above; never invent sources.
+
+Output schema: {is_valid: boolean, issues[] {type, text, original_evidence,
+suggestion}} where type in {unsupported_technology, inflated_metric,
+new_company, new_title, unsupported_achievement}.
