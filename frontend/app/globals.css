@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand: #3157f6;
+    --brand-soft: #eff3ff;
+    --proof: #cff52b;
+    --proof-ink: #111d04;
+    --surface: #faf9f6;
+    --foreground: #111318;
+  }
+
+  body {
+    background-color: #ffffff;
+    color: #111318;
+    overflow-x: hidden;
+  }
+}
+
+/* hackATS Custom Micro Animations */
+@keyframes scanBeam {
+  0% {
+    top: 0%;
+    opacity: 0.3;
+  }
+  50% {
+    top: 95%;
+    opacity: 1;
+  }
+  100% {
+    top: 0%;
+    opacity: 0.3;
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(-4deg);
+  }
+}
+
+@keyframes floatReverse {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(10px) rotate(1.5deg);
+  }
+}
+
+.scan-beam {
+  animation: scanBeam 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.float-slow {
+  animation: floatSlow 7s ease-in-out infinite;
+}
+
+.float-reverse {
+  animation: floatReverse 8s ease-in-out infinite;
+}
+
+/* High contrast editorial typography */
+.font-editorial {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f4;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
