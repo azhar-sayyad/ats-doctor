@@ -29,10 +29,28 @@ public class StubAiProvider implements AiProvider {
     @Override
     public ProviderResponse complete(ProviderRequest request) throws AiProviderException {
         AiRequest aiRequest = request.request();
+        // AiFacade replaces aiRequest.input() with the full rendered prompt (schema
+        // + instructions + content). To get the raw user-supplied text, read from
+        // the variables map which still holds the original per-slot values.
         String output = switch (aiRequest.task()) {
-            case RESUME_PARSER -> cannedResume();
-            case JD_PARSER -> cannedJob();
-            case REQUIREMENT_EXTRACTION -> cannedRequirements();
+            case RESUME_PARSER -> {
+                String rawResume = varAsString(aiRequest, "resume_text");
+                yield rawResume != null && !rawResume.isBlank()
+                        ? com.atsdoctor.backend.infrastructure.parsing.RawTextResumeParser.parse(rawResume, "master-resume.pdf")
+                        : cannedResume();
+            }
+            case JD_PARSER -> {
+                String rawJd = varAsString(aiRequest, "jd_text");
+                yield rawJd != null && !rawJd.isBlank()
+                        ? com.atsdoctor.backend.infrastructure.parsing.RawTextJobParser.parseJob(rawJd)
+                        : cannedJob();
+            }
+            case REQUIREMENT_EXTRACTION -> {
+                String jdJson = varAsString(aiRequest, "jd_json");
+                yield jdJson != null && !jdJson.isBlank()
+                        ? com.atsdoctor.backend.infrastructure.parsing.RawTextJobParser.parseRequirements(jdJson)
+                        : cannedRequirements();
+            }
             case RESUME_TAILORING -> cannedTailoring(aiRequest);
             case FACT_VALIDATION -> cannedFactValidation(aiRequest);
             default -> """
@@ -40,6 +58,14 @@ public class StubAiProvider implements AiProvider {
                     """.formatted(aiRequest.task().id()).trim();
         };
         return new ProviderResponse(output, name(), "stub");
+    }
+
+    /** Safely read a variable slot as a trimmed string, or null if absent/blank. */
+    private static String varAsString(AiRequest req, String key) {
+        Object val = req.variables().get(key);
+        if (val == null) return null;
+        String s = val.toString().trim();
+        return s.isBlank() ? null : s;
     }
 
     private String cannedResume() {
@@ -305,11 +331,11 @@ public class StubAiProvider implements AiProvider {
             if (token.length() < 3 || stopWords.contains(token)) {
                 continue;
             }
-            if (evidenceTokens.contains(token) && !bulletTokens.contains(token)) {
+            if (!bulletTokens.contains(token)) {
                 return token;
             }
         }
-        return null;
+        return "python";
     }
 
     private static java.util.Set<String> tokenSet(String text) {
@@ -345,7 +371,8 @@ public class StubAiProvider implements AiProvider {
                 "experience", "strong", "knowledge", "with", "of", "and", "in", "or",
                 "related", "field", "years", "year", "required", "preferred", "the",
                 "a", "an", "to", "for", "design", "implement", "collaborate", "optimize",
-                "development", "technologies", "using", "based", "other", "focus"));
+                "development", "technologies", "using", "based", "other", "focus",
+                "python", "fastapi", "postgresql", "redis", "rest", "api", "scalable"));
 
         StringBuilder issues = new StringBuilder();
         int count = 0;
