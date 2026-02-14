@@ -1,6 +1,11 @@
 spring:
   application:
     name: ats-doctor-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ats}
+    username: ${SPRING_DATASOURCE_USERNAME:ats}
+    password: ${SPRING_DATASOURCE_PASSWORD:ats}
+    driver-class-name: org.postgresql.Driver
   servlet:
     multipart:
       # Resume uploads: PDF/DOCX/TXT ≤10MB (FEAT-010, TASK-027).
@@ -48,9 +53,8 @@ ats:
       fallback:
         quality: ${PROFILE_QUALITY_FALLBACK:local}
     persistence:
-      # false (default): app boots without a database (TASK-006).
-      # true: Spring Boot wires Postgres (spring.datasource.*) + Flyway + JPA.
-      enabled: ${ATS_DOCTOR_PERSISTENCE_ENABLED:false}
+      # true (default): Spring Boot wires Postgres (spring.datasource.*) + Flyway + JPA.
+      enabled: ${ATS_DOCTOR_PERSISTENCE_ENABLED:true}
     matching:
       # Semantic (embedding) matching hook — disabled in the MVP (TASK-051).
       # When true the pipeline consults SemanticMatcher, which is a no-op stub
