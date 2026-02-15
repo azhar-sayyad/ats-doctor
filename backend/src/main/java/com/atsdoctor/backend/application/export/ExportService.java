@@ -76,8 +76,21 @@ public class ExportService {
     public record Section(String heading, List<String> bullets) {
     }
 
+    public record Basics(String name, String email, String phone, String location, String linkedin, String github) {
+    }
+
+    public record Skill(String name, String category) {
+    }
+
+    public record Project(String name, String description) {
+    }
+
+    public record Education(String institution, String degree, String field, String end) {
+    }
+
     /** Rendered-document model shared by the HTML template and the DOCX writer. */
-    public record DocModel(String title, String summary, List<Section> sections,
+    public record DocModel(String title, Basics basics, String summary, List<Skill> skills,
+                           List<Section> sections, List<Project> projects, List<Education> education,
                            Integer scoreBefore, Integer scoreAfter, String generatedAt) {
     }
 
@@ -152,6 +165,19 @@ public class ExportService {
     /** Build the document model from the tailored content JSONB (PRD §7.7). */
     private DocModel modelOf(TailoredResume tailored) {
         JsonNode content = parse(tailored.getContent());
+        JsonNode resumeJson = parse(tailored.getResumeVersion().getStructuredData());
+
+        JsonNode basicsNode = resumeJson.path("basics");
+        String name = basicsNode.path("name").asText("Candidate Resume");
+        Basics basics = new Basics(
+                name,
+                basicsNode.path("email").asText(""),
+                basicsNode.path("phone").asText(""),
+                basicsNode.path("location").asText(""),
+                basicsNode.path("linkedin").asText(""),
+                basicsNode.path("github").asText("")
+        );
+
         String summary = null;
         if (content.path("summary").isObject() && content.path("summary").has("tailored")) {
             summary = content.path("summary").path("tailored").asText();
@@ -159,15 +185,30 @@ public class ExportService {
                 summary = null;
             }
         }
+        if (summary == null && resumeJson.has("summary")) {
+            summary = resumeJson.path("summary").asText(null);
+        }
 
-        List<JsonNode> entries = new ArrayList<>();
-        if (content.path("order").isArray()) {
-            for (JsonNode id : content.path("order")) {
-                findEntry(content.path("experience"), id.asText()).ifPresent(entries::add);
+        List<Skill> skills = new ArrayList<>();
+        if (resumeJson.path("skills").isArray()) {
+            for (JsonNode s : resumeJson.path("skills")) {
+                skills.add(new Skill(s.path("name").asText(""), s.path("category").asText("")));
             }
         }
-        if (entries.isEmpty()) {
-            content.path("experience").forEach(entries::add);
+
+        Map<String, String> tailoredBullets = new java.util.HashMap<>();
+        if (content.path("experience").isArray()) {
+            for (JsonNode entry : content.path("experience")) {
+                if (entry.path("bullets").isArray()) {
+                    for (JsonNode b : entry.path("bullets")) {
+                        String orig = b.path("original_text").asText("");
+                        String tail = b.path("tailored_text").asText("");
+                        if (!orig.isBlank() && !tail.isBlank()) {
+                            tailoredBullets.put(orig, tail);
+                        }
+                    }
+                }
+            }
         }
 
         List<Section> sections = new ArrayList<>();
@@ -177,29 +218,57 @@ public class ExportService {
                 rejectedOriginals.add(row.getOriginalText());
             }
         }
-        for (JsonNode entry : entries) {
-            String company = entry.path("company").asText("");
-            String title = entry.path("title").asText("");
-            String heading = join(company, title);
-            List<String> bullets = new ArrayList<>();
-            for (JsonNode bullet : entry.path("bullets")) {
-                // Rejected rewrites never ship — the reviewer's "no" restores
-                // the original, evidence-derived text in the document.
-                String text = rejectedOriginals.contains(bullet.path("original_text").asText(""))
-                        ? bullet.path("original_text").asText("")
-                        : bullet.path("tailored_text").asText("");
-                if (!text.isBlank()) {
-                    bullets.add(text);
+
+        if (resumeJson.path("experience").isArray()) {
+            for (JsonNode entry : resumeJson.path("experience")) {
+                String company = entry.path("company").asText("");
+                String title = entry.path("title").asText("");
+                String heading = join(company, title);
+                List<String> bullets = new ArrayList<>();
+                if (entry.path("bullets").isArray()) {
+                    for (JsonNode b : entry.path("bullets")) {
+                        String origText = b.isObject() ? b.path("text").asText("") : b.asText("");
+                        if (!origText.isBlank()) {
+                            String textToUse = rejectedOriginals.contains(origText)
+                                    ? origText
+                                    : tailoredBullets.getOrDefault(origText, origText);
+                            bullets.add(textToUse);
+                        }
+                    }
+                }
+                if (!bullets.isEmpty()) {
+                    sections.add(new Section(heading, bullets));
                 }
             }
-            if (!bullets.isEmpty()) {
-                sections.add(new Section(heading, bullets));
+        }
+
+        List<Project> projects = new ArrayList<>();
+        if (resumeJson.path("projects").isArray()) {
+            for (JsonNode p : resumeJson.path("projects")) {
+                projects.add(new Project(p.path("name").asText(""), p.path("description").asText("")));
             }
         }
+
+        List<Education> education = new ArrayList<>();
+        if (resumeJson.path("education").isArray()) {
+            for (JsonNode e : resumeJson.path("education")) {
+                education.add(new Education(
+                        e.path("institution").asText(""),
+                        e.path("degree").asText(""),
+                        e.path("field").asText(""),
+                        e.path("end").asText("")
+                ));
+            }
+        }
+
         return new DocModel(
-                "Tailored Resume",
+                name,
+                basics,
                 summary,
+                skills,
                 sections,
+                projects,
+                education,
                 tailored.getScoreBefore(),
                 tailored.getScoreAfter(),
                 STAMP.format(Instant.now()));
@@ -231,9 +300,13 @@ public class ExportService {
     private static Map<String, Object> modelMap(DocModel model) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("title", model.title());
+        map.put("basics", model.basics());
         map.put("summary", model.summary());
-        map.put("generated_at", model.generatedAt());
+        map.put("skills", model.skills());
         map.put("sections", model.sections());
+        map.put("projects", model.projects());
+        map.put("education", model.education());
+        map.put("generated_at", model.generatedAt());
         map.put("score_before", model.scoreBefore());
         map.put("score_after", model.scoreAfter());
         return map;
@@ -255,17 +328,60 @@ public class ExportService {
         try (XWPFDocument doc = new XWPFDocument();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             heading(doc, model.title(), 16);
+            if (model.basics() != null) {
+                StringBuilder contact = new StringBuilder();
+                if (model.basics().email() != null && !model.basics().email().isEmpty()) contact.append(model.basics().email());
+                if (model.basics().phone() != null && !model.basics().phone().isEmpty()) contact.append(" | ").append(model.basics().phone());
+                if (model.basics().location() != null && !model.basics().location().isEmpty()) contact.append(" | ").append(model.basics().location());
+                if (model.basics().linkedin() != null && !model.basics().linkedin().isEmpty()) contact.append(" | ").append(model.basics().linkedin());
+                if (model.basics().github() != null && !model.basics().github().isEmpty()) contact.append(" | ").append(model.basics().github());
+                if (contact.length() > 0) meta(doc, contact.toString());
+            }
             meta(doc, "Generated by ATS Doctor on " + model.generatedAt());
+
             if (model.summary() != null) {
-                heading(doc, "Summary", 12);
+                heading(doc, "Professional Summary", 12);
                 body(doc, model.summary());
             }
-            for (Section section : model.sections()) {
-                heading(doc, section.heading(), 12);
-                for (String bullet : section.bullets()) {
-                    bullet(doc, bullet);
+
+            if (model.skills() != null && !model.skills().isEmpty()) {
+                heading(doc, "Technical Skills", 12);
+                StringBuilder sb = new StringBuilder();
+                for (Skill s : model.skills()) {
+                    if (sb.length() > 0) sb.append(", ");
+                    sb.append(s.name());
+                }
+                body(doc, sb.toString());
+            }
+
+            if (model.sections() != null && !model.sections().isEmpty()) {
+                heading(doc, "Work Experience", 12);
+                for (Section section : model.sections()) {
+                    heading(doc, section.heading(), 11);
+                    for (String bullet : section.bullets()) {
+                        bullet(doc, bullet);
+                    }
                 }
             }
+
+            if (model.projects() != null && !model.projects().isEmpty()) {
+                heading(doc, "Projects", 12);
+                for (Project project : model.projects()) {
+                    heading(doc, project.name(), 11);
+                    if (project.description() != null && !project.description().isEmpty()) {
+                        body(doc, project.description());
+                    }
+                }
+            }
+
+            if (model.education() != null && !model.education().isEmpty()) {
+                heading(doc, "Education", 12);
+                for (Education edu : model.education()) {
+                    heading(doc, edu.institution(), 11);
+                    body(doc, edu.degree() + " - " + edu.field());
+                }
+            }
+
             doc.write(out);
             return out.toByteArray();
         } catch (IOException ex) {
