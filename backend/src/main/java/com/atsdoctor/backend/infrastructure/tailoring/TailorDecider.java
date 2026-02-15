@@ -52,7 +52,7 @@ public class TailorDecider {
 
         for (TailoringContext.RequirementGap gap : context.gaps()) {
             for (TailoringContext.Bullet bullet : bullets) {
-                if (selectedIds.size() >= MAX_BULLET_REWRITES) {
+                if (selections.size() >= MAX_BULLET_REWRITES) {
                     break;
                 }
                 if (selectedIds.contains(bullet.bulletId())) {
@@ -66,8 +66,8 @@ public class TailorDecider {
                         bullet.bulletId(), bullet.originalText(),
                         bullet.claimCategory(), bullet.evidenceId(), gap.text()));
             }
-            if (!rewriteSummary && needsSummary(context)) {
-                rewriteSummary = true;
+            if (selections.size() >= MAX_BULLET_REWRITES) {
+                break;
             }
         }
 
@@ -78,15 +78,28 @@ public class TailorDecider {
         return new Decision(selections, rewriteSummary);
     }
 
-    /** Gap keyword coverage: full token containment means the bullet already sells it. */
     private static boolean coversGap(List<String> keywords, String bulletText) {
+        if (keywords == null || keywords.isEmpty()) {
+            return false;
+        }
+        Set<String> bulletTokens = Normalizer.tokens(bulletText);
         for (String keyword : keywords) {
             Set<String> tokens = Normalizer.tokens(keyword);
-            if (!tokens.isEmpty() && Normalizer.tokens(bulletText).containsAll(tokens)) {
-                return true;
+            for (String token : tokens) {
+                if (token.length() < 3) continue;
+                boolean found = false;
+                for (String bToken : bulletTokens) {
+                    if (bToken.equalsIgnoreCase(token) || bToken.startsWith(token) || token.startsWith(bToken)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    return false;
+                }
             }
         }
-        return false;
+        return true;
     }
 
     private static boolean needsSummary(TailoringContext context) {
