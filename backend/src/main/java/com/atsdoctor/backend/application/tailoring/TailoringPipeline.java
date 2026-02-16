@@ -32,6 +32,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -194,7 +195,10 @@ public class TailoringPipeline {
                 .comparing((JobRequirement r) -> r.getCreatedAt() == null ? java.time.Instant.MIN : r.getCreatedAt())
                 .thenComparing(r -> r.getId() == null ? UUID.randomUUID() : r.getId()));
         Map<String, List<String>> keywordsByText = new LinkedHashMap<>();
-        rows.forEach(r -> keywordsByText.put(r.getText(), r.getKeywords() == null ? List.of() : List.of(r.getKeywords())));
+        rows.forEach(r -> keywordsByText.put(r.getText(),
+                r.getKeywords() == null ? List.of() : Arrays.stream(r.getKeywords())
+                        .flatMap(k -> Arrays.stream(k.split(",")))
+                        .map(String::trim).filter(s -> !s.isBlank()).toList()));
 
         List<TailoringContext.RequirementGap> gaps = new ArrayList<>();
         for (JsonNode match : matchesOf(analysis)) {
@@ -202,6 +206,15 @@ public class TailoringPipeline {
             if (!"matched".equals(match.path("status").asText("")) && !text.isBlank()) {
                 gaps.add(new TailoringContext.RequirementGap(
                         text, keywordsByText.getOrDefault(text, List.of())));
+            }
+        }
+        // When all requirements are already matched (fully-scored resume), there
+        // are no gaps — but we still want to align bullets with JD keywords for
+        // maximum ATS relevance. Fall back to using all requirements as alignment
+        // targets so TailorDecider can still select and rewrite bullets.
+        if (gaps.isEmpty()) {
+            for (Map.Entry<String, List<String>> entry : keywordsByText.entrySet()) {
+                gaps.add(new TailoringContext.RequirementGap(entry.getKey(), entry.getValue()));
             }
         }
 
@@ -417,15 +430,14 @@ public class TailoringPipeline {
 
     /** Evidence row id for a section id — bullet evidence rows use {@code section_id = bullet id}. */
     private static UUID evidenceIdFor(String sectionId, List<ResumeEvidence> evidenceRows) {
-        if (sectionId == null || sectionId.isBlank()) {
-            return null;
-        }
-        for (ResumeEvidence row : evidenceRows) {
-            if (row.getId() != null && sectionId.equals(row.getSectionId())) {
-                return row.getId();
+        if (sectionId != null && !sectionId.isBlank()) {
+            for (ResumeEvidence row : evidenceRows) {
+                if (row.getId() != null && sectionId.equals(row.getSectionId())) {
+                    return row.getId();
+                }
             }
         }
-        return null;
+        return evidenceRows.isEmpty() ? null : evidenceRows.get(0).getId();
     }
 
     private static String write(Object value) {
