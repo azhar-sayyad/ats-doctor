@@ -67,6 +67,10 @@ public class TraceabilityService {
                 : resumeEvidenceRepository.findById(change.getEvidenceId()).orElse(null);
         JsonNode content = json(tailored.getContent());
 
+        JsonNode masterResume = (tailored.getResumeVersion() != null && tailored.getResumeVersion().getStructuredData() != null)
+                ? json(tailored.getResumeVersion().getStructuredData())
+                : null;
+
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("change_id", change.getId());
         out.put("original_text", change.getOriginalText());
@@ -75,7 +79,7 @@ public class TraceabilityService {
         out.put("claim_category", change.getClaimCategory());
         out.put("status", change.getStatus());
         out.put("evidence", evidence == null ? List.of() : List.of(evidenceRow(evidence)));
-        out.put("section", sectionOf(content, evidence));
+        out.put("section", sectionOf(content, masterResume, evidence));
         out.put("bullet", bulletOf(content, change));
         out.put("validation_issues", validationIssuesOf(json(tailored.getValidation()), changeId));
         return out;
@@ -96,24 +100,50 @@ public class TraceabilityService {
         return row;
     }
 
-    /** Section context (id/company/title) from the tailored document: role
-     *  evidence matches {@code experience[].id}; bullet evidence matches the
-     *  entry that contains the bullet (its {@code section_id} is the bullet id). */
-    private static Map<String, Object> sectionOf(JsonNode content, ResumeEvidence evidence) {
-        if (content == null || evidence == null || evidence.getSectionId() == null) {
+    /** Section context (id/company/title) from the tailored document or master resume. */
+    private static Map<String, Object> sectionOf(JsonNode content, JsonNode masterResume, ResumeEvidence evidence) {
+        if (evidence == null || evidence.getSectionId() == null) {
             return null;
         }
-        for (JsonNode entry : content.path("experience")) {
-            if (evidence.getSectionId().equals(entry.path("id").asText())
-                    || hasBullet(entry, evidence.getSectionId())) {
-                Map<String, Object> section = new LinkedHashMap<>();
-                section.put("id", entry.path("id").asText());
-                section.put("company", entry.path("company").asText(""));
-                section.put("title", entry.path("title").asText(""));
-                return section;
+        if (content != null) {
+            for (JsonNode entry : content.path("experience")) {
+                if (evidence.getSectionId().equals(entry.path("id").asText())
+                        || hasBullet(entry, evidence.getSectionId())) {
+                    Map<String, Object> section = new LinkedHashMap<>();
+                    section.put("id", entry.path("id").asText());
+                    section.put("company", entry.path("company").asText(""));
+                    section.put("title", entry.path("title").asText(""));
+                    return section;
+                }
+            }
+        }
+        if (masterResume != null) {
+            for (JsonNode entry : masterResume.path("experience")) {
+                if (evidence.getSectionId().equals(entry.path("id").asText())
+                        || hasMasterBullet(entry, evidence.getSectionId(), evidence.getText())) {
+                    Map<String, Object> section = new LinkedHashMap<>();
+                    section.put("id", entry.path("id").asText());
+                    section.put("company", entry.path("company").asText(""));
+                    section.put("title", entry.path("title").asText(""));
+                    return section;
+                }
             }
         }
         return null;
+    }
+
+    private static boolean hasMasterBullet(JsonNode entry, String sectionId, String text) {
+        if (sectionId.equals(entry.path("id").asText())) {
+            return true;
+        }
+        for (JsonNode bullet : entry.path("bullets")) {
+            String bId = bullet.path("id").asText("");
+            String bTxt = bullet.isObject() ? bullet.path("text").asText("") : bullet.asText("");
+            if (sectionId.equals(bId) || (text != null && text.equals(bTxt))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether the experience entry contains the tailored bullet with this original id. */
