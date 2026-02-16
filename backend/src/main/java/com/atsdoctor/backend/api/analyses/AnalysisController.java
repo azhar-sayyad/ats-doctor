@@ -21,8 +21,11 @@ import java.util.UUID;
  * QUEUED → MATCHING → SCORING → READY/FAILED, then POST
  * /analyses/{id}/reanalyze to re-run a READY/FAILED analysis (TASK-058).
  */
+import org.springframework.web.bind.annotation.CrossOrigin;
+
 @RestController
 @RequestMapping("/api/v1/analyses")
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 @ConditionalOnProperty(name = "ats.doctor.persistence.enabled", havingValue = "true")
 public class AnalysisController {
 

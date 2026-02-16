@@ -25,8 +25,11 @@ import java.util.UUID;
  * follow UPLOADED → EXTRACTING → PARSING → READY/FAILED (SPRINT-01 decision:
  * async + polling).
  */
+import org.springframework.web.bind.annotation.CrossOrigin;
+
 @RestController
 @RequestMapping("/api/v1/resumes")
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 @ConditionalOnProperty(name = "ats.doctor.persistence.enabled", havingValue = "true")
 public class ResumeController {
 

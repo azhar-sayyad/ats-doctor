@@ -35,8 +35,11 @@ import java.util.UUID;
  * change and POST /tailored/{id}/approve approves once every change is
  * resolved and validation passed (§8.2).
  */
+import org.springframework.web.bind.annotation.CrossOrigin;
+
 @RestController
 @RequestMapping("/api/v1")
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 @ConditionalOnProperty(name = "ats.doctor.persistence.enabled", havingValue = "true")
 public class TailoringController {
 
@@ -58,6 +61,13 @@ public class TailoringController {
     @PostMapping("/analyses/{analysisId}/tailor")
     public Map<String, Object> tailor(@PathVariable("analysisId") UUID analysisId) {
         return TailoredResponse.of(tailoringService.tailor(analysisId)).toMap();
+    }
+
+    @GetMapping("/tailored")
+    public List<Map<String, Object>> list() {
+        return tailoringService.list().stream()
+                .map(t -> TailoredResponse.of(t).toMap())
+                .toList();
     }
 
     @GetMapping("/tailored/{tailoredId}")
