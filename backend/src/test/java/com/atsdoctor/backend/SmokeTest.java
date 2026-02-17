@@ -11,7 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** TASK-025 — the app boots and the AI layer runs a stub generation. */
-@SpringBootTest
+@SpringBootTest(properties = "ats.doctor.persistence.enabled=false")
 class SmokeTest {
 
     @Autowired
