@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { apiGet, ApiError } from '../../../lib/api';
+import { apiGet, ApiError } from '../../../../lib/api';
 import type { TailoredChange, TailoredResume } from '../types';
 import TailoredView from './TailoredView';
 

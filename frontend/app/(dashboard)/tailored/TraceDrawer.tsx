@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiGet, ApiError } from '../../lib/api';
+import { apiGet, ApiError } from '../../../lib/api';
 import type { ChangeTrace, TailoredChange } from './types';
 import { X, HelpCircle, CheckCircle2, ShieldAlert, FileText } from 'lucide-react';
 

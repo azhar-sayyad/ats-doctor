@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { TailoredChange, TailoredResume } from '../types';
 import TraceDrawer from '../TraceDrawer';
-import { apiPost, ApiError, API_BASE_URL } from '../../../lib/api';
+import { apiPost, ApiError, API_BASE_URL } from '../../../../lib/api';
 import { Check, Edit3, RefreshCw, X, HelpCircle, Download, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 
 interface Props {
@@ -101,6 +101,19 @@ export default function ReviewPanel({ tailoredId, tailored, initialChanges }: Pr
     setEditingId(change.id);
     setDraft(change.tailored_text);
   };
+
+  async function handleExport(format: 'pdf' | 'docx' | 'json') {
+    if (pending > 0) {
+      setError(`Export blocked: ${pending} change(s) still pending review. Please accept, reject, or edit all changes first.`);
+      void checkValidation();
+      return;
+    }
+    try {
+      window.open(`${API_BASE_URL}/tailored/${tailoredId}/export/${format}`, '_blank');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
+    }
+  }
 
   return (
     <>
@@ -295,32 +308,26 @@ export default function ReviewPanel({ tailoredId, tailored, initialChanges }: Pr
 
         <div className="flex items-center gap-2">
           <span className="font-mono text-[10px] uppercase tracking-widest text-white/50">Exports:</span>
-          <a
-            href={`${API_BASE_URL}/tailored/${tailoredId}/export/pdf`}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={() => handleExport('pdf')}
             className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-3 py-1.5 font-mono text-xs font-bold text-white hover:bg-white/10"
           >
             <Download className="h-3 w-3 text-proof" />
             <span>PDF</span>
-          </a>
-          <a
-            href={`${API_BASE_URL}/tailored/${tailoredId}/export/docx`}
-            target="_blank"
-            rel="noreferrer"
+          </button>
+          <button
+            onClick={() => handleExport('docx')}
             className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-3 py-1.5 font-mono text-xs font-bold text-white hover:bg-white/10"
           >
             <Download className="h-3 w-3 text-proof" />
             <span>DOCX</span>
-          </a>
-          <a
-            href={`${API_BASE_URL}/tailored/${tailoredId}/export/json`}
-            target="_blank"
-            rel="noreferrer"
+          </button>
+          <button
+            onClick={() => handleExport('json')}
             className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-3 py-1.5 font-mono text-xs font-bold text-white hover:bg-white/10"
           >
             <span>JSON</span>
-          </a>
+          </button>
         </div>
       </div>
 

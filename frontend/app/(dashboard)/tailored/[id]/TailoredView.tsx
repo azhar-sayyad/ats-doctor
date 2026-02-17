@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiGet, ApiError } from '../../../lib/api';
+import { apiGet, ApiError } from '../../../../lib/api';
 import type { TailoredChange, TailoredResume } from '../types';
 import ReviewPanel from './ReviewPanel';
 
