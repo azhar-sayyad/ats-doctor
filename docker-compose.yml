@@ -3,6 +3,8 @@ name: ats-doctor
 services:
   db:
     image: postgres:15-alpine
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ats}
       POSTGRES_USER: ${POSTGRES_USER:-ats}
