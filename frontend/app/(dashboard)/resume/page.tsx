@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, apiGet, apiPut, apiUpload } from '../../../lib/api';
-import { UploadCloud, CheckCircle2, AlertCircle, Loader2, Save, FileText, Award } from 'lucide-react';
+import StepGuide from '../../../components/StepGuide';
+import { UploadCloud, CheckCircle2, AlertCircle, Loader2, Save, FileText, Award, Plus, Trash2 } from 'lucide-react';
 
 interface ResumeVersion {
   id: string;
@@ -188,6 +189,14 @@ export default function ResumePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <StepGuide
+        step={1}
+        title="Step 1: Upload & Structure Master Resume"
+        description="Add your core resume once. ATSDoctor extracts, structures, and evidence-traces your experience."
+        nextHref="/jobs"
+        nextLabel="Step 2: Target Roles →"
+      />
+
       {/* Header Bar */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/10 pb-6">
         <div>
@@ -389,7 +398,21 @@ function ResumeReview({
 
       {/* Skills Section */}
       <section className="rounded-[24px] border border-black/10 bg-white p-6 sm:p-7 shadow-xs">
-        <h2 className="mb-4 text-lg font-bold tracking-tight text-foreground">Skills Architecture</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight text-foreground">Skills Architecture</h2>
+          <button
+            onClick={() =>
+              patch((d) => {
+                if (!d.skills) d.skills = [];
+                d.skills.push({ name: '', category: 'Technical' });
+              })
+            }
+            className="inline-flex items-center gap-1 rounded-lg bg-surface border border-black/15 px-3 py-1 text-xs font-semibold text-foreground hover:bg-white transition"
+          >
+            <Plus className="h-3.5 w-3.5 text-brand" />
+            <span>Add Skill</span>
+          </button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {(draft.skills ?? []).map((skill, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -413,19 +436,62 @@ function ResumeReview({
                   })
                 }
               />
+              <button
+                onClick={() =>
+                  patch((d) => {
+                    if (d.skills) d.skills.splice(i, 1);
+                  })
+                }
+                className="rounded-lg p-2 text-coral hover:bg-coral-soft transition"
+                title="Remove skill"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           ))}
         </div>
         {(draft.skills ?? []).length === 0 && (
-          <p className="text-sm text-faint italic">No skills extracted yet.</p>
+          <p className="text-sm text-faint italic">No skills extracted yet. Click &quot;Add Skill&quot; to add skills manually.</p>
         )}
       </section>
 
       {/* Experience Section */}
       <section className="rounded-[24px] border border-black/10 bg-white p-6 sm:p-7 shadow-xs">
-        <h2 className="mb-4 text-lg font-bold tracking-tight text-foreground">Work Experience</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight text-foreground">Work Experience</h2>
+          <button
+            onClick={() =>
+              patch((d) => {
+                if (!d.experience) d.experience = [];
+                d.experience.push({
+                  company: 'New Company',
+                  title: 'Title',
+                  bullets: [{ text: '' }],
+                });
+              })
+            }
+            className="inline-flex items-center gap-1 rounded-lg bg-surface border border-black/15 px-3 py-1 text-xs font-semibold text-foreground hover:bg-white transition"
+          >
+            <Plus className="h-3.5 w-3.5 text-brand" />
+            <span>Add Experience</span>
+          </button>
+        </div>
         {(draft.experience ?? []).map((exp, i) => (
           <div key={i} className="mb-6 border-b border-black/10 pb-6 last:border-0 last:pb-0">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="font-mono text-xs font-bold text-brand">Role #{i + 1}</span>
+              <button
+                onClick={() =>
+                  patch((d) => {
+                    if (d.experience) d.experience.splice(i, 1);
+                  })
+                }
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-coral hover:bg-coral-soft transition"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Remove Role</span>
+              </button>
+            </div>
             <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 className={inputClass}
@@ -471,45 +537,102 @@ function ResumeReview({
               />
             </div>
             <div className="space-y-2 mt-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-faint">Bullets</p>
-              {(exp.bullets ?? []).map((bullet, j) => (
-                <textarea
-                  key={j}
-                  className={inputClass}
-                  rows={2}
-                  value={bullet.text}
-                  placeholder="Achievement bullet..."
-                  onChange={(e) =>
+              <div className="flex items-center justify-between">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-faint">Bullets</p>
+                <button
+                  onClick={() =>
                     patch((d) => {
-                      const target = d.experience?.[i]?.bullets?.[j];
-                      if (target) target.text = e.target.value;
+                      if (d.experience?.[i]) {
+                        if (!d.experience[i].bullets) d.experience[i].bullets = [];
+                        d.experience[i].bullets.push({ text: '' });
+                      }
                     })
                   }
-                />
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>Add Bullet</span>
+                </button>
+              </div>
+              {(exp.bullets ?? []).map((bullet, j) => (
+                <div key={j} className="flex items-start gap-2">
+                  <textarea
+                    className={inputClass}
+                    rows={2}
+                    value={bullet.text}
+                    placeholder="Achievement bullet..."
+                    onChange={(e) =>
+                      patch((d) => {
+                        const target = d.experience?.[i]?.bullets?.[j];
+                        if (target) target.text = e.target.value;
+                      })
+                    }
+                  />
+                  <button
+                    onClick={() =>
+                      patch((d) => {
+                        if (d.experience?.[i]?.bullets) {
+                          d.experience[i].bullets.splice(j, 1);
+                        }
+                      })
+                    }
+                    className="mt-2 text-coral hover:bg-coral-soft p-1.5 rounded-lg transition"
+                    title="Remove bullet"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               ))}
             </div>
           </div>
         ))}
         {(draft.experience ?? []).length === 0 && (
-          <p className="text-sm text-faint italic">No work experience entries parsed.</p>
+          <p className="text-sm text-faint italic">No work experience entries parsed. Click &quot;Add Experience&quot; to add entries.</p>
         )}
       </section>
 
       {/* Projects Section */}
       <section className="rounded-[24px] border border-black/10 bg-white p-6 sm:p-7 shadow-xs">
-        <h2 className="mb-4 text-lg font-bold tracking-tight text-foreground">Projects</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight text-foreground">Projects</h2>
+          <button
+            onClick={() =>
+              patch((d) => {
+                if (!d.projects) d.projects = [];
+                d.projects.push({ name: 'New Project', description: '', technologies: [] });
+              })
+            }
+            className="inline-flex items-center gap-1 rounded-lg bg-surface border border-black/15 px-3 py-1 text-xs font-semibold text-foreground hover:bg-white transition"
+          >
+            <Plus className="h-3.5 w-3.5 text-brand" />
+            <span>Add Project</span>
+          </button>
+        </div>
         {(draft.projects ?? []).map((project, i) => (
           <div key={i} className="mb-5 border-b border-black/10 pb-5 last:border-0 last:pb-0">
-            <input
-              className={inputClass}
-              value={project.name}
-              placeholder="Project Name"
-              onChange={(e) =>
-                patch((d) => {
-                  if (d.projects?.[i]) d.projects[i].name = e.target.value;
-                })
-              }
-            />
+            <div className="mb-2 flex items-center justify-between">
+              <input
+                className={inputClass}
+                value={project.name}
+                placeholder="Project Name"
+                onChange={(e) =>
+                  patch((d) => {
+                    if (d.projects?.[i]) d.projects[i].name = e.target.value;
+                  })
+                }
+              />
+              <button
+                onClick={() =>
+                  patch((d) => {
+                    if (d.projects) d.projects.splice(i, 1);
+                  })
+                }
+                className="ml-2 text-coral hover:bg-coral-soft p-2 rounded-lg transition shrink-0"
+                title="Remove project"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
             <textarea
               className={`${inputClass} mt-2`}
               rows={2}
@@ -556,7 +679,7 @@ function ResumeReview({
           </div>
         ))}
         {(draft.projects ?? []).length === 0 && (
-          <p className="text-sm text-faint italic">No projects entries parsed.</p>
+          <p className="text-sm text-faint italic">No projects entries parsed. Click &quot;Add Project&quot; to add project entries.</p>
         )}
       </section>
     </div>
