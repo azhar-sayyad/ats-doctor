@@ -46,6 +46,11 @@ export default function Navbar() {
         : `${ai.mode} · ${ai.provider ?? ''}`
     : 'AI Provider';
 
+  if (pathname !== '/') {
+    // Hide default top navbar on dashboard routes since Sidebar provides primary navigation
+    return null;
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-black/[0.08] bg-white/90 backdrop-blur-xl">
       <nav className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">

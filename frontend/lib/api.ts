@@ -1,4 +1,5 @@
-import type { TailoredResume, TailoredChange } from '../app/tailored/types';
+import type { TailoredResume, TailoredChange } from '../app/(dashboard)/tailored/types';
+export type { TailoredResume, TailoredChange };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
 
@@ -208,6 +209,7 @@ export const createAnalysis = (jobId: string, resumeVersionId: string) =>
 export const reanalyze = (id: string) => apiPost<Analysis>(`/analyses/${id}/reanalyze`);
 
 // Tailoring
+export const getTailoredResumes = () => apiGet<TailoredResume[]>('/tailored');
 export const tailorAnalysis = (analysisId: string) =>
   apiPost<TailoredResume>(`/analyses/${analysisId}/tailor`);
 export const getTailoredResume = (id: string) => apiGet<TailoredResume>(`/tailored/${id}`);

@@ -66,7 +66,7 @@ export default function Home() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/analyses"
+                href="/dashboard"
                 className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-foreground px-6 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(17,19,24,.16)] transition hover:-translate-y-0.5 hover:bg-brand"
               >
                 <span>Build your profile</span>
