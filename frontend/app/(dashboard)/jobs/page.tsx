@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, createJobFromFile, createJobFromText, deleteJob, getJob, getJobs, type Job } from '../../../lib/api';
 import { Badge } from '../../../components/ui';
+import StepGuide from '../../../components/StepGuide';
 import JobDrawer from '../../../components/jobs/JobDrawer';
 import { Briefcase, FileText, Plus, Trash2, ArrowRight, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
@@ -153,6 +154,14 @@ export default function JobsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <StepGuide
+        step={2}
+        title="Step 2: Add Target Job Postings"
+        description="Paste job description text or upload posting files to extract role requirements and skill signals."
+        nextHref="/analyses"
+        nextLabel="Step 3: Run Fit Analysis →"
+      />
+
       {/* Header Bar */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/10 pb-6">
         <div>

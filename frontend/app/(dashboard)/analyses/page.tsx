@@ -16,6 +16,7 @@ import {
   type ResumeVersion,
 } from '../../../lib/api';
 import { AnalysisBadge, ScoreBadge } from '../../../components/ui';
+import StepGuide from '../../../components/StepGuide';
 import AnalysisDetail from '../../../components/analyses/AnalysisDetail';
 import { Target, Sparkles, RefreshCw, Eye, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
@@ -172,6 +173,14 @@ export default function AnalysesPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <StepGuide
+        step={3}
+        title="Step 3: Precision Match Analysis"
+        description="Select a target Job Description and your Master Resume Version to calculate fit score and missing gaps."
+        nextHref="/tailored"
+        nextLabel="Step 4: Tailor & Review →"
+      />
+
       {/* Header Bar */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/10 pb-6">
         <div>
