@@ -87,6 +87,26 @@ class ValidationServiceTest {
     }
 
     @Test
+    void grounds_changes_against_all_evidence_rows() {
+        TailoredResume tailored = tailored("READY");
+        when(tailoredResumeRepository.findById(tailored.getId())).thenReturn(Optional.of(tailored));
+        when(resumeEvidenceRepository.findByResumeVersionId(any()))
+                .thenReturn(List.of(evidence(UUID.randomUUID(), "Java and PostgreSQL microservices.")));
+        when(tailoredChangeRepository.findByTailoredResumeIdOrderByCreatedAtAsc(tailored.getId()))
+                .thenReturn(List.of(change(tailored, null, "B",
+                        "Built scalable services.",
+                        "Built scalable services with Java and PostgreSQL.")));
+        when(validationRules.validate("B", "Built scalable services.",
+                "Built scalable services with Java and PostgreSQL.",
+                List.of("Java and PostgreSQL microservices.")))
+                .thenReturn(new ValidationRules.Verdict(true, List.of()));
+
+        JsonNode report = service.validate(tailored.getId());
+
+        assertThat(report.path("valid").asBoolean()).isTrue();
+    }
+
+    @Test
     void clean_changes_produce_a_valid_report() {
         TailoredResume tailored = tailored("READY");
         when(tailoredResumeRepository.findById(tailored.getId())).thenReturn(Optional.of(tailored));
