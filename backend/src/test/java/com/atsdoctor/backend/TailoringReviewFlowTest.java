@@ -300,12 +300,13 @@ class TailoringReviewFlowTest {
     }
 
     private String uploadResumeAndAwaitReady() throws Exception {
-        String resumeText = "Jane Doe\nSenior Software Engineer\n5+ years building distributed systems.\n"
-                + "Skills: Python, FastAPI, PostgreSQL, Redis\n"
-                + "Tech Corp — Senior Backend Engineer\n"
-                + "Built FastAPI services processing 2M events/day.\n"
-                + "Led a team of 4 engineers delivering the fraud detection platform.\n"
-                + "Stanford University, MSc Computer Science.\n";
+        String resumeText = "Jane Doe\nSenior Software Engineer\njane.doe@example.com | San Francisco, CA\n"
+                + "Senior Software Engineer with 5+ years building distributed systems.\n"
+                + "SKILLS\nLanguages: Python, FastAPI, PostgreSQL, Redis\n"
+                + "EXPERIENCE\nTech Corp — Senior Backend Engineer (2020-01 to present)\n"
+                + "- Built FastAPI services processing 2M events/day.\n"
+                + "- Led a team of 4 engineers delivering the fraud detection platform.\n"
+                + "PROJECTS\nDistributed Queue System — MSc in Computer Science capstone.\n";
         MockMultipartFile file = new MockMultipartFile("file", "master-resume.txt",
                 "text/plain", resumeText.getBytes());
 
