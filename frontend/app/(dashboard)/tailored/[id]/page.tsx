@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { apiGet, ApiError } from '../../../../lib/api';
 import type { TailoredChange, TailoredResume } from '../types';
 import TailoredView from './TailoredView';
@@ -26,9 +27,13 @@ export default async function TailoredDetail({ params }: { params: { id: string 
   }
 
   return (
-    <div className="py-10">
-      <Link href="/tailored" className="text-sm text-slate-600 hover:underline">
-        ← Tailored resumes
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <Link
+        href="/tailored"
+        className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-muted transition hover:text-brand"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Tailored resumes
       </Link>
       <TailoredView tailoredId={id} initialTailored={tailored} initialChanges={changes} />
     </div>
