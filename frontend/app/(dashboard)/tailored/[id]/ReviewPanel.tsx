@@ -345,7 +345,7 @@ export default function ReviewPanel({ tailoredId, tailored, initialChanges }: Pr
 
             {pending > 0 && (
               <div className="mt-4 rounded-xl border border-coral/30 bg-coral-soft p-4 text-xs text-coral font-medium">
-                {pending} change{pending === 1 ? '' : 's'} still pending review. All changes must be accepted, rejected, or edited before approval.
+                {pending} change{pending === 1 ? '' : 's'} still pending review. All changes must be accepted, rejected, or edited before approval — the Approve button is disabled until then.
               </div>
             )}
 
@@ -391,7 +391,7 @@ export default function ReviewPanel({ tailoredId, tailored, initialChanges }: Pr
               </button>
               <button
                 onClick={approve}
-                disabled={busy !== null}
+                disabled={busy !== null || pending > 0}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-5 py-2 text-xs font-bold text-white transition hover:bg-brand disabled:opacity-40"
               >
                 <span>{busy?.action === 'approve' ? 'Approving…' : 'Approve & Finalize'}</span>
