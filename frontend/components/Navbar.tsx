@@ -6,13 +6,6 @@ import { useEffect, useState } from 'react';
 import { apiGet, ApiError, type AiConfig } from '../lib/api';
 import { ArrowRight, Sparkles, ShieldCheck } from 'lucide-react';
 
-const NAV_LINKS = [
-  { href: '/resume', label: 'Resume' },
-  { href: '/jobs', label: 'Jobs' },
-  { href: '/analyses', label: 'Analyses' },
-  { href: '/tailored', label: 'Tailored' },
-];
-
 export default function Navbar() {
   const pathname = usePathname();
   const [ai, setAi] = useState<AiConfig | null>(null);
@@ -32,11 +25,6 @@ export default function Navbar() {
       active = false;
     };
   }, []);
-
-  const isActive = (href: string) =>
-    href === '/tailored'
-      ? pathname === '/tailored' || pathname.startsWith('/tailored/')
-      : pathname === href || pathname.startsWith(href + '/');
 
   const providerLabel = ai
     ? ai.mode === 'stub'
@@ -64,31 +52,6 @@ export default function Navbar() {
           </span>
           <span className="text-lg font-bold tracking-[-0.04em]">ATSDoctor</span>
         </Link>
-
-        {/* Navigation links */}
-        <div className="hidden items-center gap-1 text-sm font-medium text-muted md:flex">
-          <Link
-            href="/"
-            className={`rounded-lg px-3 py-1.5 transition ${
-              pathname === '/' ? 'text-foreground font-semibold bg-black/[0.04]' : 'hover:text-foreground'
-            }`}
-          >
-            Home
-          </Link>
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`rounded-lg px-3 py-1.5 transition ${
-                isActive(link.href)
-                  ? 'text-brand font-semibold bg-brand-soft'
-                  : 'hover:text-foreground'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
 
         {/* Right side widgets & CTAs */}
         <div className="flex items-center gap-3">
