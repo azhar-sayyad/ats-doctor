@@ -42,9 +42,11 @@ import java.util.UUID;
  * allowed. NEEDS_REVIEW admits revalidation after an EDITED/REGENERATED change
  * (FEAT-037, TASK-075).
  *
- * <p>Each change is validated with its own evidence chain: the linked
- * {@code resume_evidence} row text (summary rewrites have none — they ground
- * against the original text alone).
+ * <p>Every change is grounded against the FULL evidence set of the master
+ * resume version (the same corpus the tailoring pipeline uses to pick its
+ * keywords) — not just the change's linked {@code resume_evidence} row. This
+ * keeps claims grounded in a skills row or another bullet from being flagged,
+ * while still catching tokens the resume supports nowhere.
  */
 @Service
 @ConditionalOnProperty(name = "ats.doctor.persistence.enabled", havingValue = "true")
@@ -81,7 +83,7 @@ public class ValidationService {
                     "Tailored resume " + tailoredResumeId + " is not ready for validation (state=" + tailored.getState() + ")");
         }
 
-        Map<String, String> evidenceById = evidenceById(tailored.getResumeVersion().getId());
+        List<String> evidenceTexts = evidenceTextsOf(tailored.getResumeVersion().getId());
         List<TailoredChange> changes =
                 tailoredChangeRepository.findByTailoredResumeIdOrderByCreatedAtAsc(tailoredResumeId);
 
@@ -100,7 +102,7 @@ public class ValidationService {
                     change.getClaimCategory(),
                     change.getOriginalText(),
                     change.getTailoredText(),
-                    evidenceTextsOf(change.getEvidenceId(), evidenceById));
+                    evidenceTexts);
             valid = valid && verdict.valid();
             checked++;
             for (ValidationIssue issue : verdict.issues()) {
@@ -136,24 +138,15 @@ public class ValidationService {
         return entry;
     }
 
-    /** id → text for every evidence row of the tailored resume's master version. */
-    private Map<String, String> evidenceById(UUID resumeVersionId) {
-        Map<String, String> byId = new LinkedHashMap<>();
+    /** Every evidence-row text of the tailored resume's master version — the grounding corpus for all changes. */
+    private List<String> evidenceTextsOf(UUID resumeVersionId) {
+        List<String> texts = new ArrayList<>();
         for (ResumeEvidence row : resumeEvidenceRepository.findByResumeVersionId(resumeVersionId)) {
-            if (row.getId() != null) {
-                byId.put(row.getId().toString(), row.getText());
+            if (row.getText() != null && !row.getText().isBlank()) {
+                texts.add(row.getText());
             }
         }
-        return byId;
-    }
-
-    /** Evidence texts of the change's linked evidence row (none when the id is absent). */
-    private static List<String> evidenceTextsOf(UUID evidenceId, Map<String, String> evidenceById) {
-        if (evidenceId == null) {
-            return List.of();
-        }
-        String text = evidenceById.get(evidenceId.toString());
-        return text == null ? List.of() : List.of(text);
+        return texts;
     }
 
     private static String write(Object value) {
