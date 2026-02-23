@@ -41,6 +41,14 @@ public class JobService {
 
     private static final Logger log = LoggerFactory.getLogger(JobService.class);
 
+    /** Column widths from V3__create_job_tables.sql — persist-safe caps for AI-parsed values. */
+    private static final int MAX_TITLE = 255;
+    private static final int MAX_COMPANY = 255;
+    private static final int MAX_LOCATION = 255;
+    private static final int MAX_SENIORITY = 64;
+    private static final int MAX_MODEL = 255;
+    private static final int MAX_PROMPT_VERSION = 64;
+
     private final JobRepository jobRepository;
     private final JobRequirementRepository requirementRepository;
     private final LocalFileStorage storage;
@@ -104,13 +112,13 @@ public class JobService {
         transition(job, JobState.READY);
         job.setRawText(rawText);
         job.setStructuredData(jdOutput);
-        job.setTitle(dto.job() == null ? null : dto.job().title());
-        job.setCompany(dto.job() == null ? null : dto.job().company());
-        job.setLocation(dto.job() == null ? null : dto.job().location());
-        job.setSeniority(dto.job() == null ? null : dto.job().seniority());
-        job.setModelUsed(modelUsed);
-        job.setModelVersion(modelVersion);
-        job.setPromptVersion(promptVersion);
+        job.setTitle(cap(dto.job() == null ? null : dto.job().title(), MAX_TITLE));
+        job.setCompany(cap(dto.job() == null ? null : dto.job().company(), MAX_COMPANY));
+        job.setLocation(cap(dto.job() == null ? null : dto.job().location(), MAX_LOCATION));
+        job.setSeniority(cap(dto.job() == null ? null : dto.job().seniority(), MAX_SENIORITY));
+        job.setModelUsed(cap(modelUsed, MAX_MODEL));
+        job.setModelVersion(cap(modelVersion, MAX_MODEL));
+        job.setPromptVersion(cap(promptVersion, MAX_PROMPT_VERSION));
         job.setTemperature(dto.metadata() == null ? null : dto.metadata().temperature());
         job.setError(null);
         replaceRequirements(job, requirementOutput);
@@ -191,6 +199,14 @@ public class JobService {
     private static String messageOf(Throwable error) {
         String message = error.getMessage();
         return message == null || message.isBlank() ? error.getClass().getSimpleName() : message;
+    }
+
+    /** Truncate an AI-parsed value to its DB column width so an overlong value can never fail the pipeline. */
+    private static String cap(String value, int max) {
+        if (value == null || value.length() <= max) {
+            return value;
+        }
+        return value.substring(0, max);
     }
 
     private JobResponse toResponse(Job job) {
