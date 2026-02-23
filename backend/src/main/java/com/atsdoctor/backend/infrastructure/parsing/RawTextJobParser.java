@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Parses raw text extracted from uploaded or pasted Job Descriptions into
@@ -44,7 +45,7 @@ public class RawTextJobParser {
         job.put("title", title);
         job.put("company", company);
         job.put("location", location);
-        job.put("seniority", title.toLowerCase().contains("senior") ? "senior" : "mid");
+        job.put("seniority", seniorityOf(title));
         job.put("post_date", "2026-01-01");
         job.put("url", "");
 
@@ -58,7 +59,7 @@ public class RawTextJobParser {
             reqSkills.add(k);
         }
         skillsNode.putArray("preferred");
-        skillsNode.putArray("nice_to_have");
+        skillsNode.putArray("niceToHave");
 
         ArrayNode respNode = root.putArray("responsibilities");
         extractResponsibilities(rawText, respNode);
@@ -88,8 +89,8 @@ public class RawTextJobParser {
                         ObjectNode r = reqs.addObject();
                         r.put("id", "req_" + reqIndex);
                         r.put("text", clean);
-                        r.put("type", clean.toLowerCase().contains("degree") ? "education" : "hard_skill");
-                        r.put("importance", reqIndex <= 2 ? "must_have" : "should_have");
+                        r.put("type", classifyRequirementType(clean));
+                        r.put("importance", classifyRequirementImportance(clean));
                         ArrayNode kws = r.putArray("keywords");
                         for (String kw : extractTechKeywords(clean)) {
                             kws.add(kw);
@@ -98,19 +99,6 @@ public class RawTextJobParser {
                         if (reqIndex > 10) break;
                     }
                 }
-            }
-        }
-        if (reqs.size() < 5) {
-            String[][] defaults = {
-                    {"req_1", "5+ years backend development experience", "experience", "must_have"},
-                    {"req_2", "Expert knowledge of Java and Spring Boot", "hard_skill", "must_have"},
-                    {"req_3", "Experience with Python and Django/FastAPI", "hard_skill", "should_have"},
-                    {"req_4", "Experience with microservices, Kafka, and PostgreSQL", "hard_skill", "should_have"},
-                    {"req_5", "Experience building distributed systems", "hard_skill", "should_have"}
-            };
-            for (String[] def : defaults) {
-                if (reqs.size() >= 5) break;
-                addReq(reqs, "req_" + (reqs.size() + 1), def[1], def[2], def[3]);
             }
         }
         return reqs.toString();
@@ -162,18 +150,6 @@ public class RawTextJobParser {
         }
     }
 
-    private static void addReq(ArrayNode reqs, String id, String text, String type, String importance) {
-        ObjectNode r = reqs.addObject();
-        r.put("id", id);
-        r.put("text", text);
-        r.put("type", type);
-        r.put("importance", importance);
-        ArrayNode kws = r.putArray("keywords");
-        for (String kw : extractTechKeywords(text)) {
-            kws.add(kw);
-        }
-    }
-
     /** Extract recognized tech stack tokens from a requirement sentence. */
     private static List<String> extractTechKeywords(String text) {
         String lower = text.toLowerCase();
@@ -192,38 +168,123 @@ public class RawTextJobParser {
     }
 
     private static String extractTitle(String[] lines) {
+        String[] roleWords = {
+                "engineer", "developer", "lead", "architect", "manager",
+                "analyst", "sre", "support", "administrator", "specialist", "consultant"
+        };
         for (String line : lines) {
             String trimmed = line.trim();
-            if (trimmed.length() > 4 && trimmed.length() < 70 && (trimmed.toLowerCase().contains("engineer") || trimmed.toLowerCase().contains("developer") || trimmed.toLowerCase().contains("lead") || trimmed.toLowerCase().contains("architect") || trimmed.toLowerCase().contains("manager"))) {
+            String lower = trimmed.toLowerCase();
+            boolean isBullet = trimmed.startsWith("\u2022") || trimmed.startsWith("-") || trimmed.startsWith("*")
+                    || trimmed.matches("\\d+[.)].*");
+            boolean isSectionHeader = containsAny(lower, "role requirements", "responsibilities",
+                    "qualifications", "requirements", "overview", "about the role",
+                    "job description", "summary", "key responsibilities");
+            if (!isBullet && !isSectionHeader && trimmed.length() > 4 && trimmed.length() < 70
+                    && containsAny(lower, roleWords)) {
                 if (trimmed.contains("(")) {
                     trimmed = trimmed.substring(0, trimmed.indexOf('(')).trim();
                 }
                 return trimmed;
             }
         }
-        return "Senior Software Engineer";
+        return "Untitled Role";
+    }
+
+    private static String seniorityOf(String title) {
+        String lower = title.toLowerCase();
+        if (lower.contains("senior") || lower.contains("sr ") || lower.contains("sr.")) {
+            return "senior";
+        }
+        if (lower.contains("junior") || lower.contains("jr ") || lower.contains("jr.")) {
+            return "junior";
+        }
+        if (lower.contains("lead")) {
+            return "lead";
+        }
+        if (lower.contains("principal")) {
+            return "principal";
+        }
+        return "";
     }
 
     private static String extractCompany(String[] lines, String rawText) {
         String lower = rawText.toLowerCase();
-        if (lower.contains("google")) return "Google";
-        if (lower.contains("microsoft")) return "Microsoft";
-        if (lower.contains("amazon")) return "Amazon";
-        if (lower.contains("meta") || lower.contains("facebook")) return "Meta";
-        if (lower.contains("tech corp")) return "Tech Corp";
-        for (String line : lines) {
-            if (line.toLowerCase().contains("inc") || line.toLowerCase().contains("corp") || line.toLowerCase().contains("technologies") || line.toLowerCase().contains("solutions")) {
-                return line.trim();
+        String[][] knownCompanies = {
+                {"google", "Google"},
+                {"microsoft", "Microsoft"},
+                {"amazon", "Amazon"},
+                {"meta", "Meta"},
+                {"facebook", "Meta"},
+                {"optum", "Optum"},
+                {"unitedhealth", "UnitedHealth Group"},
+                {"united health", "UnitedHealth Group"},
+                {"tech corp", "Tech Corp"},
+                {"infonover", "Infonover Technologies"}
+        };
+        for (String[] pair : knownCompanies) {
+            if (containsWord(lower, pair[0])) {
+                return pair[1];
             }
         }
-        return "Target Hiring Company";
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.length() > 2 && trimmed.length() <= 120
+                    && (trimmed.toLowerCase().contains("inc") || trimmed.toLowerCase().contains("corp")
+                    || trimmed.toLowerCase().contains("technologies") || trimmed.toLowerCase().contains("solutions"))) {
+                return trimmed;
+            }
+        }
+        return "";
     }
 
     private static String extractLocation(String text) {
-        if (text.toLowerCase().contains("remote")) return "Remote";
-        if (text.toLowerCase().contains("india")) return "India";
-        if (text.toLowerCase().contains("ca")) return "California, USA";
-        return "Remote / Onsite";
+        String lower = text.toLowerCase();
+        if (containsWord(lower, "remote")) return "Remote";
+        if (containsWord(lower, "india")) return "India";
+        if (containsWord(lower, "california") || containsWord(lower, "ca")) return "California, USA";
+        if (containsWord(lower, "new york") || containsWord(lower, "ny")) return "New York, USA";
+        if (containsWord(lower, "texas") || containsWord(lower, "tx")) return "Texas, USA";
+        if (containsWord(lower, "united states") || containsWord(lower, "usa")) return "United States";
+        return "";
+    }
+
+    private static boolean containsWord(String lowerText, String word) {
+        return Pattern.compile("(?i)\\b" + Pattern.quote(word) + "\\b").matcher(lowerText).find();
+    }
+
+    private static boolean containsAny(String lowerText, String... tokens) {
+        for (String token : tokens) {
+            if (lowerText.contains(token)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String classifyRequirementType(String text) {
+        String lower = text.toLowerCase();
+        if (containsAny(lower, "degree", "bsc", "msc", "bachelor", "master", "bs in", "b.tech", "m.tech", "mba")) {
+            return "education";
+        }
+        if (containsAny(lower, "experience", "years", "year of", "background", "track record")) {
+            return "experience";
+        }
+        return "skill";
+    }
+
+    private static String classifyRequirementImportance(String text) {
+        String lower = text.toLowerCase();
+        if (containsAny(lower, "must", "required", "essential", "mandatory", "minimum")) {
+            return "high";
+        }
+        if (containsAny(lower, "preferred", "nice to have", "plus", "bonus")) {
+            return "medium";
+        }
+        if (containsAny(lower, "years", "experience", "degree", "proficien", "strong", "expert")) {
+            return "medium";
+        }
+        return "low";
     }
 
     private static void extractRequirementsAndKeywords(String text, ArrayNode reqsNode, List<String> keywords) {
@@ -242,13 +303,11 @@ public class RawTextJobParser {
                     || trimmed.toLowerCase().contains("proficien"));
             if ((isBullet || isProse) && trimmed.length() > 10) {
                 String reqText = isBullet ? trimmed.substring(1).trim() : trimmed;
-                String type = reqText.toLowerCase().contains("degree") || reqText.toLowerCase().contains("bsc")
-                        || reqText.toLowerCase().contains("msc") ? "education" : "hard_skill";
                 ObjectNode r = reqsNode.addObject();
                 r.put("id", "req_" + count);
                 r.put("text", reqText);
-                r.put("type", type);
-                r.put("importance", count <= 2 ? "must_have" : "should_have");
+                r.put("type", classifyRequirementType(reqText));
+                r.put("importance", classifyRequirementImportance(reqText));
                 ArrayNode kws = r.putArray("keywords");
                 for (String kw : extractTechKeywords(reqText)) {
                     kws.add(kw);
@@ -265,9 +324,6 @@ public class RawTextJobParser {
             if (lower.contains(tech)) {
                 keywords.add(tech);
             }
-        }
-        if (keywords.isEmpty()) {
-            keywords.addAll(List.of("Java", "Spring Boot", "Python", "PostgreSQL", "Kafka", "AWS"));
         }
     }
 
@@ -287,7 +343,7 @@ public class RawTextJobParser {
                 {
                   "_stub": true,
                   "job": { "title": "Senior Backend Engineer", "company": "Tech Corp", "location": "Remote", "seniority": "senior" },
-                  "requirements": [], "skills": { "required": [], "preferred": [], "nice_to_have": [] },
+                  "requirements": [], "skills": { "required": [], "preferred": [], "niceToHave": [] },
                   "responsibilities": [], "keywords": []
                 }
                 """;
