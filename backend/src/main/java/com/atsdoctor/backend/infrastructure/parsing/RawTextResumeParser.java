@@ -22,6 +22,11 @@ public class RawTextResumeParser {
     private static final Pattern PHONE_PATTERN = Pattern.compile("(\\+?\\d{1,3}[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}");
     private static final Pattern LINKEDIN_PATTERN = Pattern.compile("linkedin\\.com/in/[a-zA-Z0-9_-]+", Pattern.CASE_INSENSITIVE);
     private static final Pattern GITHUB_PATTERN = Pattern.compile("github\\.com/[a-zA-Z0-9_-]+", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DateRangePattern = Pattern.compile(
+            "(\\d{4}(?:[-/.\\s]\\d{1,2})?)\\s*(?:to|[-–—])\\s*(present|\\d{4}(?:[-/.\\s]\\d{1,2})?)",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern EducationYearPattern = Pattern.compile("(?:19|20)\\d{2}(?:\\s*[-–—]\\s*(?:19|20)\\d{2})?");
+    private static final Pattern DegreePattern = Pattern.compile("(?i)\\b(b\\.?e\\.?|b\\.?tech|b\\.?sc\\.?|m\\.?e\\.?|m\\.?tech|m\\.?sc\\.?|m\\.?ba|bachelor|master|ph\\.?d)");
 
     public static String parse(String rawText, String sourceFilename) {
         if (rawText == null || rawText.isBlank()) {
@@ -30,7 +35,7 @@ public class RawTextResumeParser {
 
         String[] lines = rawText.split("\\r?\\n");
         String name = extractName(lines);
-        String email = extractRegex(rawText, EMAIL_PATTERN, "candidate@example.com");
+        String email = extractRegex(rawText, EMAIL_PATTERN, "");
         String phone = extractRegex(rawText, PHONE_PATTERN, "");
         String linkedin = extractRegex(rawText, LINKEDIN_PATTERN, "");
         String github = extractRegex(rawText, GITHUB_PATTERN, "");
@@ -108,16 +113,25 @@ public class RawTextResumeParser {
             if (line.contains("|")) {
                 for (String chunk : line.split("\\|")) {
                     String c = chunk.trim();
-                    if (c.toLowerCase().contains("india") || c.toLowerCase().contains("ca")
-                            || c.toLowerCase().contains("ny") || c.contains(",")) {
-                        if (!c.contains("@") && !c.toLowerCase().contains("linkedin") && !c.toLowerCase().contains("github")) {
-                            return c;
-                        }
+                    if (isLocationChunk(c)) {
+                        return c;
                     }
                 }
             }
         }
-        return "Remote";
+        return "";
+    }
+
+    private static boolean isLocationChunk(String chunk) {
+        String lower = chunk.toLowerCase();
+        if (chunk.contains("@") || lower.contains("linkedin") || lower.contains("github")) {
+            return false;
+        }
+        return containsWord(lower, "remote") || containsWord(lower, "india")
+                || containsWord(lower, "california") || containsWord(lower, "new york")
+                || containsWord(lower, "texas") || containsWord(lower, "usa")
+                || containsWord(lower, "ca") || containsWord(lower, "ny") || containsWord(lower, "tx")
+                || lower.contains(",");
     }
 
     private static String extractSummary(String text) {
@@ -131,7 +145,7 @@ public class RawTextResumeParser {
                 return section.replaceAll("\\r?\\n", " ").replaceAll("\\s+", " ").trim();
             }
         }
-        return "Experienced Software Engineer with a focus on scalable systems and high-quality software development.";
+        return "";
     }
 
     private static void extractSkills(String text, ArrayNode skillsNode) {
@@ -158,33 +172,32 @@ public class RawTextResumeParser {
                 }
             }
         }
-        if (skillsNode.isEmpty()) {
-            addSkill(skillsNode, "Java", "Backend", 3);
-            addSkill(skillsNode, "Spring Boot", "Backend", 3);
-            addSkill(skillsNode, "Python", "Language", 3);
-            addSkill(skillsNode, "Next.js", "Frontend", 2);
-            addSkill(skillsNode, "PostgreSQL", "Database", 3);
-        }
-    }
-
-    private static void addSkill(ArrayNode node, String name, String category, int years) {
-        ObjectNode s = node.addObject();
-        s.put("name", name);
-        s.put("category", category);
-        s.put("years", years);
     }
 
     private static void extractExperience(String text, ArrayNode expNode, ArrayNode claimsNode) {
-        String lower = text.toLowerCase();
-        int start = lower.indexOf("experience");
-        String block = text;
-        if (start != -1) {
-            int end = lower.indexOf("projects", start);
-            if (end == -1) end = lower.indexOf("education", start);
-            block = end != -1 ? text.substring(start, end) : text.substring(start);
+        String[] allLines = text.split("\\r?\\n");
+        int sectionStart = -1;
+        for (int i = 0; i < allLines.length; i++) {
+            String lower = allLines[i].trim().toLowerCase();
+            if (lower.equals("experience") || lower.startsWith("work experience")
+                    || lower.startsWith("professional experience") || lower.startsWith("technical experience")
+                    || lower.startsWith("employment history") || lower.startsWith("relevant experience")) {
+                sectionStart = i;
+                break;
+            }
         }
+        if (sectionStart == -1) return;
 
-        String[] lines = block.split("\\r?\\n");
+        StringBuilder blockBuilder = new StringBuilder();
+        for (int i = sectionStart; i < allLines.length; i++) {
+            String trimmed = allLines[i].trim();
+            String lower = trimmed.toLowerCase();
+            if (i > sectionStart && (isSectionHeader(trimmed) && !lower.startsWith("experience"))) {
+                break;
+            }
+            blockBuilder.append(trimmed).append('\n');
+        }
+        String[] lines = blockBuilder.toString().split("\\r?\\n");
         ObjectNode currentExp = null;
         ArrayNode currentBullets = null;
         int expIndex = 1;
@@ -196,21 +209,10 @@ public class RawTextResumeParser {
             boolean isBullet = trimmed.startsWith("•") || trimmed.startsWith("-") || trimmed.startsWith("*") || isActionVerb(trimmed);
 
             if (isBullet) {
+                if (currentExp == null) continue;
                 String bulletText = (trimmed.startsWith("•") || trimmed.startsWith("-") || trimmed.startsWith("*"))
                         ? trimmed.substring(1).trim()
                         : trimmed;
-                if (currentExp == null) {
-                    currentExp = expNode.addObject();
-                    currentExp.put("id", "exp_" + expIndex);
-                    currentExp.put("company", text.contains("Tech Corp") ? "Tech Corp" : "Infonover Technologies");
-                    currentExp.put("title", text.contains("Backend Engineer") ? "Senior Backend Engineer" : "Software Engineer");
-                    currentExp.put("start", "2023-01");
-                    currentExp.put("end", "present");
-                    currentExp.put("location", "Remote");
-                    currentExp.put("description", "Software engineering role");
-                    currentBullets = currentExp.putArray("bullets");
-                    expIndex++;
-                }
                 String bulletId = currentExp.get("id").asText() + "_bullet_" + (currentBullets.size() + 1);
                 ObjectNode b = currentBullets.addObject();
                 b.put("id", bulletId);
@@ -218,7 +220,7 @@ public class RawTextResumeParser {
                 b.putArray("technologies");
                 b.putArray("metrics");
                 b.putArray("domains");
-                b.put("evidence_level", "explicit");
+                b.put("evidenceLevel", "explicit");
 
                 ObjectNode claim = claimsNode.addObject();
                 claim.put("id", bulletId);
@@ -228,43 +230,45 @@ public class RawTextResumeParser {
                 ArrayNode refs = claim.putArray("source_refs");
                 refs.add(currentExp.get("id").asText());
                 claim.putArray("facts");
-            } else if (line.length() < 100) {
+            } else if (line.length() < 100 && !isSectionHeader(trimmed)) {
                 currentExp = expNode.addObject();
                 currentExp.put("id", "exp_" + expIndex);
                 String comp = trimmed;
-                String tit = "Software Engineer";
+                String tit = "";
                 if (trimmed.contains("—") || trimmed.contains("–") || trimmed.contains(" - ")) {
                     String[] parts = trimmed.split("[-—–]", 2);
                     comp = parts[0].trim();
                     tit = parts[1].trim();
                 }
+                Matcher years = DateRangePattern.matcher(trimmed);
+                if (years.find()) {
+                    currentExp.put("start", years.group(1));
+                    currentExp.put("end", years.group(2));
+                }
+                if (!tit.isEmpty()) {
+                    Matcher titleYears = DateRangePattern.matcher(tit);
+                    if (titleYears.find()) {
+                        tit = (tit.substring(0, titleYears.start()) + " " + tit.substring(titleYears.end()))
+                                .replaceAll("[()\\s]+", " ").trim();
+                    }
+                    currentExp.put("title", tit);
+                }
                 currentExp.put("company", comp);
-                currentExp.put("title", tit);
-                currentExp.put("start", "2023-01");
-                currentExp.put("end", "present");
-                currentExp.put("location", "Remote");
+                currentExp.put("location", "");
                 currentExp.put("description", trimmed);
                 currentBullets = currentExp.putArray("bullets");
                 expIndex++;
             }
         }
+    }
 
-        if (expNode.isEmpty()) {
-            ObjectNode exp = expNode.addObject();
-            exp.put("id", "exp_1");
-            exp.put("company", text.contains("Tech Corp") ? "Tech Corp" : "Infonover Technologies");
-            exp.put("title", "Software Engineer");
-            exp.put("start", "2023-01");
-            exp.put("end", "present");
-            exp.put("location", "Remote");
-            exp.put("description", "Software Engineer");
-            ArrayNode b = exp.putArray("bullets");
-            ObjectNode b1 = b.addObject();
-            b1.put("id", "exp_1_bullet_1");
-            b1.put("text", "Developed scalable REST APIs using Spring Boot for domain, project, and team management modules.");
-            b1.putArray("technologies"); b1.putArray("metrics"); b1.putArray("domains");
-            b1.put("evidence_level", "explicit");
-        }
+    private static boolean isSectionHeader(String line) {
+        String lower = line.toLowerCase();
+        return lower.equals("skills") || lower.equals("projects") || lower.equals("education")
+                || lower.equals("summary") || lower.equals("certifications") || lower.equals("awards")
+                || lower.equals("languages") || lower.equals("interests") || lower.equals("contact")
+                || lower.startsWith("work experience") || lower.startsWith("professional experience")
+                || lower.startsWith("technical skills");
     }
 
     private static boolean isActionVerb(String line) {
@@ -314,16 +318,35 @@ public class RawTextResumeParser {
 
         for (String line : block.split("\\r?\\n")) {
             String trimmed = line.trim();
-            if (trimmed.length() > 10 && !trimmed.equalsIgnoreCase("education")) {
-                ObjectNode e = eduNode.addObject();
-                e.put("institution", trimmed);
-                e.put("degree", "Bachelor of Engineering");
-                e.put("field", "Computer Science and Engineering");
-                e.put("start", "2018");
-                e.put("end", "2022");
-                break;
+            if (trimmed.isEmpty() || trimmed.equalsIgnoreCase("education") || trimmed.length() < 5) continue;
+            if (isSectionHeader(trimmed)) break;
+            ObjectNode e = eduNode.addObject();
+            String institution = trimmed;
+            Matcher ym = EducationYearPattern.matcher(trimmed);
+            if (ym.find()) {
+                String range = ym.group();
+                String[] ys = range.split("\\s*[-–—]\\s*");
+                e.put("start", ys[0]);
+                if (ys.length > 1) e.put("end", ys[1]);
+                institution = (trimmed.substring(0, ym.start()) + " " + trimmed.substring(ym.end()))
+                        .replaceAll("\\s+", " ").trim();
             }
+            Matcher dm = DegreePattern.matcher(institution);
+            if (dm.find()) {
+                e.put("degree", dm.group().replaceAll("\\s+", " ").trim());
+            }
+            String[] commaParts = institution.split(",");
+            String inst = commaParts[commaParts.length - 1].trim();
+            for (int i = commaParts.length - 1; i >= 0 && inst.isEmpty(); i--) {
+                inst = commaParts[i].trim();
+            }
+            e.put("institution", inst);
+            break;
         }
+    }
+
+    private static boolean containsWord(String lowerText, String word) {
+        return Pattern.compile("(?i)\\b" + Pattern.quote(word) + "\\b").matcher(lowerText).find();
     }
 
     private static String fallbackStub(String filename) {
