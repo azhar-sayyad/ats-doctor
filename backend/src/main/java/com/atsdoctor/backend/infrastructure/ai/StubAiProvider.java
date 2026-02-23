@@ -114,7 +114,7 @@ public class StubAiProvider implements AiProvider {
                           "technologies": ["FastAPI", "Python", "PostgreSQL"],
                           "metrics": ["2M events/day"],
                           "domains": ["distributed systems", "backend"],
-                          "evidence_level": "explicit"
+                          "evidenceLevel": "explicit"
                         },
                         {
                           "id": "exp_001_bullet_002",
@@ -122,7 +122,7 @@ public class StubAiProvider implements AiProvider {
                           "technologies": ["Python", "Redis"],
                           "metrics": ["4 engineers"],
                           "domains": ["fraud detection", "leadership"],
-                          "evidence_level": "explicit"
+                          "evidenceLevel": "explicit"
                         }
                       ]
                     }
@@ -340,8 +340,7 @@ public class StubAiProvider implements AiProvider {
 
     private static java.util.Set<String> tokenSet(String text) {
         java.util.Set<String> tokens = new java.util.LinkedHashSet<>();
-        for (String token : text.toLowerCase(java.util.Locale.ROOT)
-                .replaceAll("[^a-z0-9+#.-]+", " ").split(" ")) {
+        for (String token : tokenOrdered(text)) {
             if (!token.isBlank()) {
                 tokens.add(token);
             }
@@ -350,8 +349,25 @@ public class StubAiProvider implements AiProvider {
     }
 
     private static String[] tokenOrdered(String text) {
-        return text.toLowerCase(java.util.Locale.ROOT)
+        String[] out = text.toLowerCase(java.util.Locale.ROOT)
                 .replaceAll("[^a-z0-9+#.-]+", " ").split(" ");
+        for (int i = 0; i < out.length; i++) {
+            out[i] = stripTrailingPunctuation(out[i]);
+        }
+        return out;
+    }
+
+    /**
+     * Same trailing-punctuation strip as {@code DeterministicValidator.tokens}
+     * so the stub's tokens and the deterministic stage's tokens compare equal
+     * ("postgresql." and "postgresql" are the same token).
+     */
+    private static String stripTrailingPunctuation(String token) {
+        String trimmed = token;
+        while (!trimmed.isEmpty() && ".?!;:,".indexOf(trimmed.charAt(trimmed.length() - 1)) >= 0) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed;
     }
 
     /**
@@ -387,8 +403,8 @@ public class StubAiProvider implements AiProvider {
                 if (count > 0) {
                     issues.append(", ");
                 }
-                issues.append("{\"type\": \"%s\", \"text\": \"%s\", \"original_evidence\": \"\", "
-                        + "\"suggestion\": \"Remove or ground '%s' in the original resume.\"}"
+                issues.append(("{\"type\": \"%s\", \"text\": \"%s\", \"original_evidence\": \"\", "
+                        + "\"suggestion\": \"Remove or ground '%s' in the original resume.\"}")
                         .formatted(type, escapeJson(token), escapeJson(token)));
                 count++;
             }
