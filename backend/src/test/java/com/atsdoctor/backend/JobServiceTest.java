@@ -142,6 +142,27 @@ class JobServiceTest {
     }
 
     @Test
+    void complete_success_caps_overlong_parsed_values_to_column_widths() {
+        Job job = job(JobState.PARSING);
+        String longCompany = "Company".repeat(60);
+        JobDto dto = JobDto.parse("""
+                {"job":{"title":"Senior Backend Engineer","company":"%s","location":"Remote"}}
+                """.formatted(longCompany), Validation.buildDefaultValidatorFactory().getValidator());
+
+        JobResponse response = service.completeSuccess(job.getId(), "raw jd", dto,
+                "{\"job\":{\"title\":\"Senior Backend Engineer\"}}",
+                """
+                {"requirements":[{"text":"Experience with Python","type":"skill","importance":"high"}]}
+                """,
+                "stub", "stub", "jd-parser-v1");
+
+        assertThat(response.state()).isEqualTo("READY");
+        assertThat(response.company()).hasSize(255);
+        assertThat(response.company()).isEqualTo(longCompany.substring(0, 255));
+        assertThat(response.location()).isEqualTo("Remote");
+    }
+
+    @Test
     void complete_failure_marks_failed_with_error() {
         Job job = job(JobState.PARSING);
 
