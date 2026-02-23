@@ -172,7 +172,7 @@ export default function AnalysesPage() {
     'w-full rounded-xl border border-black/15 bg-white px-3.5 py-2.5 text-sm text-foreground focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50 transition';
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <StepGuide
         step={3}
         title="Step 3: Precision Match Analysis"
