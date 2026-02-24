@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function TailoredIndex() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <StepGuide
         step={4}
         title="Step 4: Tailored Rewrites, Review & Export"
