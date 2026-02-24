@@ -69,7 +69,7 @@ export default function DashboardHubPage() {
       : 0;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 space-y-10">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 space-y-10">
       {/* Top Header Bar */}
       <div className="border-b border-black/10 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
