@@ -5,10 +5,95 @@ export interface TailoredResume {
   state: string;
   score_before: number | null;
   score_after: number | null;
-  content: unknown;
+  content: TailoredContent | null;
   error: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** §7.7 tailored content JSONB — one rewrite entry per selected bullet. */
+export interface TailoredContent {
+  summary: { original: string; tailored: string } | null;
+  experience: TailoredExperience[];
+  order: string[] | null;
+  generation?: { mode?: string; ai_enabled?: boolean; prompt_version?: string } | null;
+}
+
+export interface TailoredExperience {
+  id: string;
+  company: string;
+  title: string;
+  bullets: TailoredBullet[];
+}
+
+export interface TailoredBullet {
+  original_id: string;
+  original_text: string;
+  tailored_text: string;
+}
+
+// ---------------------------------------------------------------------------
+// Master resume structured_data (§4.1) — mirrors the resume editor shapes.
+// ---------------------------------------------------------------------------
+
+export interface ResumeBasics {
+  name?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  linkedin?: string;
+  github?: string;
+}
+
+export interface ResumeBullet {
+  id?: string;
+  text: string;
+  technologies?: string[];
+  metrics?: string[];
+  domains?: string[];
+  evidence_level?: string;
+}
+
+export interface ResumeExperience {
+  id?: string;
+  company: string;
+  title?: string;
+  start?: string;
+  end?: string;
+  location?: string;
+  description?: string;
+  bullets?: ResumeBullet[];
+}
+
+export interface ResumeProject {
+  id?: string;
+  name: string;
+  description?: string;
+  technologies?: string[];
+  outcomes?: string[];
+}
+
+export interface ResumeEducation {
+  institution?: string;
+  degree?: string;
+  field?: string;
+  start?: string;
+  end?: string;
+}
+
+export interface ResumeSkill {
+  name: string;
+  category?: string;
+  years?: number;
+}
+
+export interface StructuredResume {
+  basics: ResumeBasics;
+  summary?: string;
+  skills?: ResumeSkill[];
+  experience?: ResumeExperience[];
+  projects?: ResumeProject[];
+  education?: ResumeEducation[];
 }
 
 export interface TailoredChange {
@@ -20,6 +105,12 @@ export interface TailoredChange {
   status: string;
   prompt_version: string | null;
   created_at: string;
+}
+
+/** UI-only: which change is currently being processed by a review action. */
+export interface ReviewBusy {
+  changeId: string;
+  action: string;
 }
 
 export interface TraceEvidence {
