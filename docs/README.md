@@ -28,6 +28,7 @@ This documentation set derives from it and must never contradict it.
 | 13 | [`13-project-status.md`](./13-project-status.md) | **Dashboard** — derived from the backlog |
 | 14 | [`14-decision-log.md`](./14-decision-log.md) | Architectural/product decisions (DEC-###) |
 | 15 | [`15-change-log.md`](./15-change-log.md) | Every material change (CL-###) |
+| 16 | [`16-stub-analysis.md`](./16-stub-analysis.md) | Architecture/working/accuracy of the stub AI provider |
 
 ## Source-of-truth hierarchy
 
