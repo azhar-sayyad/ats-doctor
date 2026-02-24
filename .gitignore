@@ -16,6 +16,10 @@ data/analyses/*
 data/outputs/*
 !data/outputs/.gitkeep
 
+# ── Runtime data & generated artifacts ────────────────────────────
+backend/data/
+docs/public/
+
 # ── Node / Next.js ─────────────────────────────────────────────────
 node_modules/
 .next/
