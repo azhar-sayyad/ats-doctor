@@ -224,5 +224,6 @@ export const approveTailored = (id: string) => apiPost<{ status: string }>(`/tai
 // AI transparency
 export const getAiConfig = () => apiGet<AiConfig>('/ai/config');
 
-// Resume (current master version)
+// Resume (current master version + specific versions)
 export const getCurrentResume = () => apiGet<ResumeVersion>('/resumes/current');
+export const getResumeVersion = (id: string) => apiGet<ResumeVersion>(`/resumes/${id}`);
