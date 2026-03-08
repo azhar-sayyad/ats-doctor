@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { apiGet, ApiError } from '../../../../lib/api';
+import { apiGet, ApiError, getAnalysis, getJob, getResumeVersion, type Analysis, type Job, type ResumeVersion } from '../../../../lib/api';
 import type { TailoredChange, TailoredResume } from '../types';
-import TailoredView from './TailoredView';
+import Workspace from './Workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,15 +19,24 @@ export default async function TailoredDetail({ params }: { params: { id: string 
     }
     throw err;
   }
-  let changes: TailoredChange[] = [];
-  try {
-    changes = await apiGet<TailoredChange[]>(`/tailored/${id}/changes`);
-  } catch {
-    // changes list unavailable — the drawer will surface the error
-  }
+
+  // Independent, degradable fetches — a missing analysis/job/resume never
+  // takes down the workspace; the affected panels render partial data.
+  const [changes, analysis, job, resumeVersion] = await Promise.all([
+    apiGet<TailoredChange[]>(`/tailored/${id}/changes`).catch(() => [] as TailoredChange[]),
+    tailored.analysis_id
+      ? getAnalysis(tailored.analysis_id).catch(() => null as Analysis | null)
+      : Promise.resolve(null as Analysis | null),
+    tailored.analysis_id
+      ? getJobOf(tailored.analysis_id).catch(() => null as Job | null)
+      : Promise.resolve(null as Job | null),
+    tailored.resume_version_id
+      ? getResumeVersion(tailored.resume_version_id).catch(() => null as ResumeVersion | null)
+      : Promise.resolve(null as ResumeVersion | null),
+  ]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href="/tailored"
         className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-muted transition hover:text-brand"
@@ -35,7 +44,19 @@ export default async function TailoredDetail({ params }: { params: { id: string 
         <ArrowLeft className="h-3.5 w-3.5" />
         Tailored resumes
       </Link>
-      <TailoredView tailoredId={id} initialTailored={tailored} initialChanges={changes} />
+      <Workspace
+        tailoredId={id}
+        initialTailored={tailored}
+        initialChanges={changes}
+        initialAnalysis={analysis}
+        initialJob={job}
+        initialResumeVersion={resumeVersion}
+      />
     </div>
   );
+}
+
+async function getJobOf(analysisId: string): Promise<Job> {
+  const analysis = await getAnalysis(analysisId);
+  return getJob(analysis.job_id);
 }
