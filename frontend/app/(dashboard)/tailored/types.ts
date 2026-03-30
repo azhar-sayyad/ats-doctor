@@ -6,6 +6,8 @@ export interface TailoredResume {
   score_before: number | null;
   score_after: number | null;
   content: TailoredContent | null;
+  /** Full editable tailored document JSON (merged resume); null until the user saves an edit. */
+  document: string | null;
   error: string | null;
   created_at: string;
   updated_at: string;
