@@ -22,6 +22,7 @@ public record TailoredResponse(
         Integer scoreBefore,
         Integer scoreAfter,
         JsonNode content,
+        JsonNode document,
         String error,
         Instant createdAt,
         Instant updatedAt) {
@@ -37,6 +38,7 @@ public record TailoredResponse(
                 tailored.getScoreBefore(),
                 tailored.getScoreAfter(),
                 json(tailored.getContent()),
+                json(tailored.getDocument()),
                 tailored.getError(),
                 tailored.getCreatedAt(),
                 tailored.getUpdatedAt());
@@ -51,6 +53,7 @@ public record TailoredResponse(
         map.put("score_before", scoreBefore);
         map.put("score_after", scoreAfter);
         map.put("content", content);
+        map.put("document", document);
         map.put("error", error);
         map.put("created_at", createdAt);
         map.put("updated_at", updatedAt);
