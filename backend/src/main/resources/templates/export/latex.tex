@@ -1,0 +1,68 @@
+% ATS Doctor — tailored resume (generated [(${generated_at})])
+% ATS-readable LaTeX export. Edit in Overleaf or any pdflatex/xelatex setup.
+\documentclass[a4paper,10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\pagestyle{empty}
+
+\titleformat{\section}{\large\bfseries\MakeUppercase}{}{0em}{}[\titlerule]
+\setlist[itemize]{nosep,leftmargin=1.2em,topsep=2pt}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries [(${title})]}\\[6pt]
+[#th:block th:if="${basics} != null"]
+\small
+[(${basics.email})][#th:block th:if="${basics.phone} != null and !${basics.phone.isEmpty()}"] | [(${basics.phone})][/th:block][#th:block th:if="${basics.location} != null and !${basics.location.isEmpty()}"] | [(${basics.location})][/th:block][#th:block th:if="${basics.linkedin} != null and !${basics.linkedin.isEmpty()}"] | [(${basics.linkedin})][/th:block][#th:block th:if="${basics.github} != null and !${basics.github.isEmpty()}"] | [(${basics.github})][/th:block]
+[/th:block]
+\end{center}
+
+[#th:block th:if="${summary} != null"]
+\section*{Professional Summary}
+[(${summary})]
+[/th:block]
+
+[#th:block th:if="${skills} != null and !${skills.isEmpty()}"]
+\section*{Technical Skills}
+[#th:block th:each="skill : ${skills}"]
+[(${skill.name})][#th:block th:if="${!stat.last}"] · [/th:block]
+[/th:block]
+[/th:block]
+
+[#th:block th:if="${sections} != null and !${sections.isEmpty()}"]
+\section*{Work Experience}
+[#th:block th:each="section : ${sections}"]
+\subsection*{[(${section.heading})]}
+\begin{itemize}
+[#th:block th:each="bullet : ${section.bullets}"]
+  \item [(${bullet})]
+[/th:block]
+\end{itemize}
+[/th:block]
+[/th:block]
+
+[#th:block th:if="${projects} != null and !${projects.isEmpty()}"]
+\section*{Projects}
+[#th:block th:each="project : ${projects}"]
+\subsection*{[(${project.name})]}
+[#th:block th:if="${project.description} != null and !${project.description.isEmpty()}"]
+[(${project.description})]
+[/th:block]
+[/th:block]
+[/th:block]
+
+[#th:block th:if="${education} != null and !${education.isEmpty()}"]
+\section*{Education}
+[#th:block th:each="edu : ${education}"]
+\subsection*{[(${edu.institution})]}
+[#th:block th:if="${edu.degree} != null and !${edu.degree.isEmpty()}"]
+[(${edu.degree})][#th:block th:if="${edu.field} != null and !${edu.field.isEmpty()}"] — [(${edu.field})][/th:block]
+[/th:block]
+[/th:block]
+[/th:block]
+
+\end{document}
