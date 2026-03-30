@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -93,6 +94,21 @@ public class TailoringController {
             out.add(ChangeItem.of(change).toMap());
         }
         return out;
+    }
+
+    /**
+     * Full-document edit (tailored edit workspace): the body is the merged
+     * tailored resume document JSON (basics, summary, skills, experience with
+     * effective bullets, projects, education). Persists it on
+     * {@code tailored_resumes.document}, moves READY → NEEDS_REVIEW, resolves
+     * the per-change rows and re-runs fact-grounding validation so the
+     * approve/export gate stays intact. 404 unknown; 409 not under review;
+     * 400 blank or malformed JSON.
+     */
+    @PutMapping("/tailored/{tailoredId}/edit")
+    public Map<String, Object> editDocument(@PathVariable("tailoredId") UUID tailoredId,
+                                            @RequestBody String documentJson) {
+        return TailoredResponse.of(changeReviewService.saveDocument(tailoredId, documentJson)).toMap();
     }
 
     /**
