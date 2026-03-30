@@ -152,6 +152,19 @@ public class ExportService {
                 "tailored-resume-" + tailoredResumeId + ".docx", content);
     }
 
+    /** LaTeX artifact (tailored edit workspace / Overleaf export): renders the same DocModel through the TEXT-mode {@code latex.tex} template. */
+    @Transactional
+    public ExportArtifact latex(UUID tailoredResumeId) throws ExportException {
+        TailoredResume tailored = require(tailoredResumeId);
+        assertExportable(tailoredResumeId);
+        String tex = templateEngine.process("latex", new Context(Locale.ROOT, latexModelMap(modelOf(tailored))));
+        byte[] content = tex.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        store(exportsRoot, tailoredResumeId, "tex", content);
+        return new ExportArtifact(
+                "application/x-tex",
+                "tailored-resume-" + tailoredResumeId + ".tex", content);
+    }
+
     // ------------------------------------------------------------------
 
     private static boolean validationValid(String stored) {
@@ -400,6 +413,89 @@ public class ExportService {
         map.put("score_before", model.scoreBefore());
         map.put("score_after", model.scoreAfter());
         return map;
+    }
+
+    /**
+     * LaTeX-flavoured model map: every user string is escaped for the LaTeX
+     * specials (\ & % $ # _ { } ~ ^) so the rendered .tex compiles cleanly.
+     * Kept separate from {@link #modelMap} so the HTML template stays raw.
+     */
+    private static Map<String, Object> latexModelMap(DocModel model) {
+        Map<String, Object> basics = new LinkedHashMap<>();
+        if (model.basics() != null) {
+            basics.put("email", latexEscape(model.basics().email()));
+            basics.put("phone", latexEscape(model.basics().phone()));
+            basics.put("location", latexEscape(model.basics().location()));
+            basics.put("linkedin", latexEscape(model.basics().linkedin()));
+            basics.put("github", latexEscape(model.basics().github()));
+        } else {
+            basics.put("email", "");
+            basics.put("phone", "");
+            basics.put("location", "");
+            basics.put("linkedin", "");
+            basics.put("github", "");
+        }
+
+        List<Map<String, Object>> skills = new ArrayList<>();
+        for (Skill skill : model.skills() == null ? List.<Skill>of() : model.skills()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("name", latexEscape(skill.name()));
+            entry.put("category", latexEscape(skill.category()));
+            skills.add(entry);
+        }
+
+        List<Map<String, Object>> sections = new ArrayList<>();
+        for (Section section : model.sections() == null ? List.<Section>of() : model.sections()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("heading", latexEscape(section.heading()));
+            entry.put("bullets", section.bullets() == null ? List.<String>of()
+                    : section.bullets().stream().map(ExportService::latexEscape).toList());
+            sections.add(entry);
+        }
+
+        List<Map<String, Object>> projects = new ArrayList<>();
+        for (Project project : model.projects() == null ? List.<Project>of() : model.projects()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("name", latexEscape(project.name()));
+            entry.put("description", latexEscape(project.description()));
+            projects.add(entry);
+        }
+
+        List<Map<String, Object>> education = new ArrayList<>();
+        for (Education edu : model.education() == null ? List.<Education>of() : model.education()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("institution", latexEscape(edu.institution()));
+            entry.put("degree", latexEscape(edu.degree()));
+            entry.put("field", latexEscape(edu.field()));
+            education.add(entry);
+        }
+
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("title", latexEscape(model.title()));
+        map.put("basics", basics);
+        map.put("summary", latexEscape(model.summary()));
+        map.put("skills", skills);
+        map.put("sections", sections);
+        map.put("projects", projects);
+        map.put("education", education);
+        map.put("generated_at", model.generatedAt());
+        return map;
+    }
+
+    private static String latexEscape(String text) {
+        if (text == null) {
+            return null;
+        }
+        return text.replace("\\", "\\textbackslash{}")
+                .replace("&", "\\&")
+                .replace("%", "\\%")
+                .replace("$", "\\$")
+                .replace("#", "\\#")
+                .replace("_", "\\_")
+                .replace("{", "\\{")
+                .replace("}", "\\}")
+                .replace("~", "\\textasciitilde{}")
+                .replace("^", "\\textasciicircum{}");
     }
 
     private static byte[] renderPdf(String html) throws ExportException {
