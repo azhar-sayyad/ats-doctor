@@ -56,6 +56,11 @@ public class TailoredResume {
     @Column(columnDefinition = "jsonb")
     private String validation;
 
+    /** Full editable tailored document JSON; null until the user saves an edit via PUT /tailored/{id}/edit. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private String document;
+
     /** Rendered ATS-friendly HTML (SPRINT-06 export, TASK-079); null until first export. */
     @Column(columnDefinition = "TEXT")
     private String html;
@@ -141,6 +146,14 @@ public class TailoredResume {
 
     public void setValidation(String validation) {
         this.validation = validation;
+    }
+
+    public String getDocument() {
+        return document;
+    }
+
+    public void setDocument(String document) {
+        this.document = document;
     }
 
     public String getHtml() {
