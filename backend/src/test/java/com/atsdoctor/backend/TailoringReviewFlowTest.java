@@ -5,6 +5,7 @@ import com.atsdoctor.backend.infrastructure.persistence.TailoredChangeRepository
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResumeRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -231,6 +233,62 @@ class TailoringReviewFlowTest {
                             .content("{\"action\":\"accept\"}"))
                     .andExpect(status().isConflict());
         }
+    }
+
+    @Test
+    void edit_document_is_authoritative_for_exports() throws Exception {
+        JsonNode ready = tailorReadyAnalysis();
+        String tailoredId = ready.get("id").asText();
+
+        // Build the merged document from the master structured data, then edit
+        // the name and first company so the rendered export can prove the saved
+        // document (not the pre-edit content) was used.
+        JsonNode version = mapper.readTree(mvc.perform(
+                        get("/api/v1/resumes/" + ready.get("resume_version_id").asText()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        ObjectNode document = (ObjectNode) mapper.readTree(version.get("structured_data").asText());
+        String name = document.path("basics").path("name").asText("Candidate");
+        String company = document.path("experience").path(0).path("company").asText("Acme");
+        ((ObjectNode) document.get("basics")).put("name", name + " (edited)");
+        ((ObjectNode) document.get("experience").get(0)).put("company", company + " (edited)");
+
+        mvc.perform(put("/api/v1/tailored/" + tailoredId + "/edit")
+                        .contentType("application/json")
+                        .content(mapper.writeValueAsString(document)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("NEEDS_REVIEW"))
+                .andExpect(jsonPath("$.document.basics.name").value(name + " (edited)"));
+
+        // A full-document edit resolves every non-REJECTED change to EDITED; the
+        // reviewer still grounds each row so the approve/export gate passes.
+        for (TailoredChange row : tailoredChangeRepository
+                .findByTailoredResumeIdOrderByCreatedAtAsc(UUID.fromString(tailoredId))) {
+            if (!"REJECTED".equals(row.getStatus())) {
+                mvc.perform(post("/api/v1/tailored/" + tailoredId + "/changes/" + row.getId())
+                                .contentType("application/json")
+                                .content("{\"action\":\"edit\",\"new_text\":\"" + row.getOriginalText() + "\"}"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.status").value("EDITED"));
+            }
+        }
+        mvc.perform(post("/api/v1/tailored/" + tailoredId + "/validate"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true));
+        mvc.perform(post("/api/v1/tailored/" + tailoredId + "/approve"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("approved"));
+
+        mvc.perform(get("/api/v1/tailored/" + tailoredId + "/export/pdf"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/pdf"));
+
+        // The rendered HTML carries the edited name and company — the saved
+        // document, not the original content, drove the export.
+        String html = tailoredResumeRepository.findById(UUID.fromString(tailoredId))
+                .orElseThrow().getHtml();
+        assertThat(html).contains(name + " (edited)");
+        assertThat(html).contains(company + " (edited)");
     }
 
     // --- pipeline seeding (mirrors TailoringPipelineIntegrationTest) ---
