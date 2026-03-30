@@ -139,6 +139,56 @@ public class ChangeReviewService {
     }
 
     /**
+     * Persist a full-document edit (tailored edit workspace): stores the merged
+     * document JSON on {@code tailored_resumes.document}, moves READY →
+     * NEEDS_REVIEW, resolves the per-change review rows (every non-REJECTED
+     * change becomes EDITED so the approve/export gate stays clear — the
+     * document is authoritative after an edit; the reviewer can still refine
+     * rows in the Review list), then re-runs fact-grounding validation. 409
+     * unless state is READY or NEEDS_REVIEW (mirrors {@link #ensureReviewable});
+     * 400 on blank or malformed JSON.
+     */
+    @Transactional
+    public TailoredResume saveDocument(UUID tailoredResumeId, String documentJson) {
+        TailoredResume tailored = requireTailored(tailoredResumeId);
+        ensureReviewable(tailored);
+        if (documentJson == null || documentJson.isBlank()) {
+            throw new TailoringValidationException("document must not be blank for an edit");
+        }
+        try {
+            MAPPER.readTree(documentJson);
+        } catch (Exception ex) {
+            throw new TailoringValidationException("document is not valid JSON: " + ex.getMessage());
+        }
+        if ("READY".equals(tailored.getState())) {
+            tailored.setState(StateMachines.tailoring()
+                    .transition(TailoringState.valueOf(tailored.getState()), TailoringState.NEEDS_REVIEW).name());
+        }
+        tailored.setDocument(documentJson);
+        tailoredResumeRepository.save(tailored);
+        resolveChangesToDocument(tailoredResumeId);
+        revalidate(tailored);
+        return tailored;
+    }
+
+    /**
+     * Reconcile the per-change rows with an edited document so nothing blocks
+     * the approve/export gate. The document is authoritative after a full edit,
+     * so every non-REJECTED change is marked EDITED (its current tailored text
+     * kept — the reviewer can still refine it in the Review list). REJECTED
+     * rows are left alone (their original text stands).
+     */
+    private void resolveChangesToDocument(UUID tailoredResumeId) {
+        for (TailoredChange change : tailoredChangeRepository.findByTailoredResumeIdOrderByCreatedAtAsc(tailoredResumeId)) {
+            if ("REJECTED".equals(change.getStatus())) {
+                continue;
+            }
+            change.setStatus("EDITED");
+            tailoredChangeRepository.save(change);
+        }
+    }
+
+    /**
      * Approve a fully reviewed, valid resume. Idempotent for APPROVED rows;
      * 409 until every change is resolved and the persisted validation report
      * is {@code valid=true}.
