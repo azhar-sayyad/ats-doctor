@@ -164,9 +164,19 @@ public class ExportService {
 
     /** Build the document model from the tailored content JSONB (PRD §7.7). */
     private DocModel modelOf(TailoredResume tailored) {
-        JsonNode content = parse(tailored.getContent());
-        JsonNode resumeJson = parse(tailored.getResumeVersion().getStructuredData());
+        // After a full-document edit the saved document is authoritative; the
+        // merged document (basics, summary, skills, experience, projects,
+        // education) renders as-is. Before any edit, fall back to reconciling
+        // master structured data + tailored content + change statuses.
+        String documentJson = tailored.getDocument();
+        if (documentJson != null && !documentJson.isBlank()) {
+            return modelOfDocument(tailored, parse(documentJson));
+        }
+        return modelOfContent(tailored, parse(tailored.getContent()),
+                parse(tailored.getResumeVersion().getStructuredData()));
+    }
 
+    private DocModel modelOfContent(TailoredResume tailored, JsonNode content, JsonNode resumeJson) {
         JsonNode basicsNode = resumeJson.path("basics");
         String name = basicsNode.path("name").asText("Candidate Resume");
         Basics basics = new Basics(
@@ -252,6 +262,86 @@ public class ExportService {
         List<Education> education = new ArrayList<>();
         if (resumeJson.path("education").isArray()) {
             for (JsonNode e : resumeJson.path("education")) {
+                education.add(new Education(
+                        e.path("institution").asText(""),
+                        e.path("degree").asText(""),
+                        e.path("field").asText(""),
+                        e.path("end").asText("")
+                ));
+            }
+        }
+
+        return new DocModel(
+                name,
+                basics,
+                summary,
+                skills,
+                sections,
+                projects,
+                education,
+                tailored.getScoreBefore(),
+                tailored.getScoreAfter(),
+                STAMP.format(Instant.now()));
+    }
+
+    /**
+     * Document-authoritative export: the saved merged document (PUT
+     * /tailored/{id}/edit) is the single source of truth. Bullet text is used
+     * verbatim; there is no content/change reconciliation.
+     */
+    private DocModel modelOfDocument(TailoredResume tailored, JsonNode document) {
+        JsonNode basicsNode = document.path("basics");
+        String name = basicsNode.path("name").asText("Candidate Resume");
+        Basics basics = new Basics(
+                name,
+                basicsNode.path("email").asText(""),
+                basicsNode.path("phone").asText(""),
+                basicsNode.path("location").asText(""),
+                basicsNode.path("linkedin").asText(""),
+                basicsNode.path("github").asText("")
+        );
+
+        String summary = document.path("summary").asText(null);
+        if (summary != null && summary.isBlank()) {
+            summary = null;
+        }
+
+        List<Skill> skills = new ArrayList<>();
+        if (document.path("skills").isArray()) {
+            for (JsonNode s : document.path("skills")) {
+                skills.add(new Skill(s.path("name").asText(""), s.path("category").asText("")));
+            }
+        }
+
+        List<Section> sections = new ArrayList<>();
+        if (document.path("experience").isArray()) {
+            for (JsonNode entry : document.path("experience")) {
+                String heading = join(entry.path("company").asText(""), entry.path("title").asText(""));
+                List<String> bullets = new ArrayList<>();
+                if (entry.path("bullets").isArray()) {
+                    for (JsonNode b : entry.path("bullets")) {
+                        String text = b.isObject() ? b.path("text").asText("") : b.asText("");
+                        if (!text.isBlank()) {
+                            bullets.add(text);
+                        }
+                    }
+                }
+                if (!bullets.isEmpty()) {
+                    sections.add(new Section(heading, bullets));
+                }
+            }
+        }
+
+        List<Project> projects = new ArrayList<>();
+        if (document.path("projects").isArray()) {
+            for (JsonNode p : document.path("projects")) {
+                projects.add(new Project(p.path("name").asText(""), p.path("description").asText("")));
+            }
+        }
+
+        List<Education> education = new ArrayList<>();
+        if (document.path("education").isArray()) {
+            for (JsonNode e : document.path("education")) {
                 education.add(new Education(
                         e.path("institution").asText(""),
                         e.path("degree").asText(""),
