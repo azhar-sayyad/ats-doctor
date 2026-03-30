@@ -16,8 +16,9 @@ import java.util.UUID;
 
 /**
  * Tailored-resume export (07-api-contract §8.2, FEAT-037, TASK-082):
- * GET /tailored/{id}/export/{format} with format ∈ {pdf, docx, json}.
+ * GET /tailored/{id}/export/{format} with format ∈ {pdf, docx, latex, json}.
  * pdf/docx render ATS-friendly artifacts (Thymeleaf → Flying Saucer / POI);
+ * latex renders a .tex source via the TEXT-mode {@code latex.tex} template;
  * json reuses the GET /tailored/{id} shape. All formats share the export gate
  * (409 until every change is resolved and validation passed — {@link
  * ExportService#assertExportable}), 404 unknown.
@@ -44,6 +45,7 @@ public class TailoringExportController {
         return switch (format.toLowerCase()) {
             case "pdf" -> artifact(exportService.pdf(tailoredId));
             case "docx" -> artifact(exportService.docx(tailoredId));
+            case "latex" -> artifact(exportService.latex(tailoredId));
             case "json" -> {
                 exportService.assertExportable(tailoredId);
                 yield ResponseEntity.ok()
@@ -51,7 +53,7 @@ public class TailoringExportController {
                         .body(TailoredResponse.of(tailoringService.byId(tailoredId)).toMap());
             }
             default -> throw new com.atsdoctor.backend.application.tailoring.TailoringValidationException(
-                    "Unknown export format '" + format + "' (pdf|docx|json)");
+                    "Unknown export format '" + format + "' (pdf|docx|json|latex)");
         };
     }
 
