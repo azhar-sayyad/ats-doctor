@@ -267,6 +267,7 @@ export const reviewChange = (tailoredId: string, changeId: string, action: strin
 export const approveTailored = (id: string) => apiPost<{ status: string }>(`/tailored/${id}/approve`);
 export const editTailoredDocument = (id: string, document: unknown) =>
   apiPut<TailoredResume>(`/tailored/${id}/edit`, document);
+export const exportTailoredUrl = (id: string, format: string) => `${API_BASE_URL}/tailored/${id}/export/${format}`;
 
 // AI transparency
 export const getAiConfig = () => apiGet<AiConfig>('/ai/config');
