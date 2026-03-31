@@ -230,6 +230,123 @@ export function toDocument(doc: DocModel): StructuredResume {
   };
 }
 
+/**
+ * LaTeX source for the effective document — mirrors the backend export template
+ * (templates/export/latex.tex) with the same escaping rules so the generated
+ * .tex compiles cleanly in Overleaf / pdflatex. Returns '' when no document.
+ */
+export function toLatex(doc: DocModel | null): string {
+  if (!doc) return '';
+
+  const contact = [
+    doc.basics.email,
+    doc.basics.phone,
+    doc.basics.location,
+    doc.basics.linkedin,
+    doc.basics.github,
+  ]
+    .filter((v): v is string => !!v && v.trim() !== '')
+    .map(latexEscape)
+    .join(' | ');
+
+  const lines: string[] = [
+    '% ATS Doctor — tailored resume',
+    '% ATS-readable LaTeX export. Edit in Overleaf or any pdflatex/xelatex setup.',
+    '\\documentclass[a4paper,10pt]{article}',
+    '\\usepackage[margin=0.7in]{geometry}',
+    '\\usepackage[T1]{fontenc}',
+    '\\usepackage[utf8]{inputenc}',
+    '\\usepackage{enumitem}',
+    '\\usepackage{titlesec}',
+    '\\pagestyle{empty}',
+    '',
+    '\\titleformat{\\section}{\\large\\bfseries\\MakeUppercase}{}{0em}{}[\\titlerule]',
+    '\\setlist[itemize]{nosep,leftmargin=1.2em,topsep=2pt}',
+    '',
+    '\\begin{document}',
+    '',
+    '\\begin{center}',
+    `{\\LARGE\\bfseries ${latexEscape(doc.basics.name ?? 'Candidate Resume')}}\\\\[6pt]`,
+  ];
+  if (contact) {
+    lines.push('\\small', contact);
+  }
+  lines.push('\\end{center}', '');
+
+  if (doc.summary?.effective?.trim()) {
+    lines.push('\\section*{Professional Summary}', doc.summary.effective, '');
+  }
+
+  if (doc.skills.length > 0) {
+    lines.push(
+      '\\section*{Technical Skills}',
+      doc.skills.map((s) => latexEscape(s.name)).join(' · '),
+      '',
+    );
+  }
+
+  if (doc.sections.length > 0) {
+    lines.push('\\section*{Work Experience}');
+    for (const section of doc.sections) {
+      const heading = [section.company, section.title].filter(Boolean).join(', ');
+      lines.push(`\\subsection*{${latexEscape(heading)}}`, '\\begin{itemize}');
+      for (const bullet of section.bullets) {
+        lines.push(`  \\item ${latexEscape(bullet.effectiveText)}`);
+      }
+      lines.push('\\end{itemize}');
+    }
+    lines.push('');
+  }
+
+  if (doc.projects.length > 0) {
+    lines.push('\\section*{Projects}');
+    for (const project of doc.projects) {
+      lines.push(`\\subsection*{${latexEscape(project.name)}}`);
+      if (project.description?.trim()) {
+        lines.push(latexEscape(project.description));
+      }
+    }
+    lines.push('');
+  }
+
+  if (doc.education.length > 0) {
+    lines.push('\\section*{Education}');
+    for (const edu of doc.education) {
+      lines.push(`\\subsection*{${latexEscape(edu.institution ?? '')}}`);
+      const degreeLine = [latexEscape(edu.degree ?? ''), latexEscape(edu.field ?? '')]
+        .filter(Boolean)
+        .join(' — ');
+      if (degreeLine) {
+        lines.push(degreeLine);
+      }
+    }
+    lines.push('');
+  }
+
+  lines.push('\\end{document}');
+  return lines.join('\n');
+}
+
+/** Escapes LaTeX specials (same rules as the backend ExportService). */
+function latexEscape(text: string | null | undefined): string {
+  if (!text) return '';
+  // Escape the backslash last (via a placeholder) so the braces inserted by
+  // \textbackslash{} / \textasciitilde{} / \textasciicircum{} are not
+  // re-escaped, keeping the round-trip with latexUnescape exact.
+  return text
+    .replace(/\\/g, '\u0000')
+    .replace(/&/g, '\\&')
+    .replace(/%/g, '\\%')
+    .replace(/\$/g, '\\$')
+    .replace(/#/g, '\\#')
+    .replace(/_/g, '\\_')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}')
+    .replace(/~/g, '\\textasciitilde{}')
+    .replace(/\^/g, '\\textasciicircum{}')
+    .replace(/\u0000/g, '\\textbackslash{}');
+}
+
 function findTailoredBullet(
   content: TailoredContent | null,
   bullet: { id?: string; text: string },
