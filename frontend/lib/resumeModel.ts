@@ -14,6 +14,10 @@ import type { Analysis, Job, JobDto, TailoredResume } from './api';
 // Structured-data parsing
 // ---------------------------------------------------------------------------
 
+export function cloneResume(resume: StructuredResume): StructuredResume {
+  return structuredClone(resume);
+}
+
 export function parseStructured<T>(raw: string | null): T | null {
   if (!raw) return null;
   try {
@@ -199,6 +203,30 @@ export function buildDocumentModel(
     sections,
     projects: resume.projects ?? [],
     education: resume.education ?? [],
+  };
+}
+
+/**
+ * The editable tailored document — the effective {@link DocModel} flattened
+ * back to the StructuredResume shape persisted via PUT /tailored/{id}/edit.
+ * Bullets keep the effective text so the saved document is authoritative.
+ */
+export function toDocument(doc: DocModel): StructuredResume {
+  return {
+    basics: { ...doc.basics },
+    summary: doc.summary?.effective ?? undefined,
+    skills: doc.skills ?? [],
+    experience: doc.sections.map((s) => ({
+      id: s.id,
+      company: s.company,
+      title: s.title,
+      start: s.start,
+      end: s.end,
+      location: s.location,
+      bullets: s.bullets.map((b) => ({ id: b.originalId, text: b.effectiveText })),
+    })),
+    projects: doc.projects ?? [],
+    education: doc.education ?? [],
   };
 }
 
