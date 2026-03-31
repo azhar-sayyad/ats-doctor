@@ -59,6 +59,28 @@ export interface DocModel {
 const changeByOriginal = (changes: TailoredChange[]): Map<string, TailoredChange> =>
   new Map(changes.map((c) => [c.original_text, c]));
 
+/** A change whose tailored/original text equals the given document text (document path — content is null). */
+const findDocumentChange = (
+  bullet: { id?: string; text: string },
+  changes: TailoredChange[],
+): TailoredChange | null => {
+  for (const c of changes) {
+    if (c.tailored_text === bullet.text || (c.original_text !== '' && c.original_text === bullet.text)) {
+      return c;
+    }
+  }
+  return null;
+};
+
+const findSummaryChange = (summaryText: string, changes: TailoredChange[]): TailoredChange | null => {
+  for (const c of changes) {
+    if (c.tailored_text === summaryText || (c.original_text !== '' && c.original_text === summaryText)) {
+      return c;
+    }
+  }
+  return null;
+};
+
 const effectiveTailoredText = (
   bullet: { original_id: string; original_text: string; tailored_text: string },
   changesByOriginal: Map<string, TailoredChange>,
@@ -77,7 +99,17 @@ const effectiveTailoredText = (
   return { text: bullet.tailored_text, status, change };
 };
 
-/** Builds the review-aware document model from master data + tailored content. */
+/**
+ * Builds the review-aware document model.
+ *
+ * Two sources of truth:
+ * - {@code content} non-null (default): master structured data + tailored
+ *   content + change statuses reconcile into the effective document.
+ * - {@code content} null: {@code resume} is already the full editable tailored
+ *   document (saved via PUT /tailored/{id}/edit) — its bullet text is
+ *   authoritative, and {@code changes} are only overlaid so the Changes
+ *   highlight view can annotate AI-touched bullets.
+ */
 export function buildDocumentModel(
   resume: StructuredResume | null,
   content: TailoredContent | null,
@@ -100,34 +132,53 @@ export function buildDocumentModel(
           return { original: content.summary.original, effective, rewritten: true };
         })()
       : resume.summary
-        ? { original: resume.summary, effective: resume.summary, rewritten: false }
+        ? (() => {
+            const change = findSummaryChange(resume.summary!, changes);
+            return {
+              original: change?.original_text ?? resume.summary!,
+              effective: resume.summary!,
+              rewritten: change !== null,
+            };
+          })()
         : null;
 
   const ordered = orderSections(resume.experience ?? [], content);
   const sections: DocSection[] = ordered.map((exp) => {
     const bullets: DocBullet[] = (exp.bullets ?? []).map((b) => {
       const originalText = b.text ?? '';
-      const matched = findTailoredBullet(content, b);
-      if (!matched) {
+      const matched = content ? findTailoredBullet(content, b) : null;
+      if (matched) {
+        const { text, status, change } = effectiveTailoredText(matched, changesByOriginal);
         return {
           originalId: b.id,
           originalText,
-          effectiveText: originalText,
-          status: null,
-          claimCategory: null,
-          reason: null,
-          change: null,
+          effectiveText: text,
+          status,
+          claimCategory: change?.claim_category ?? null,
+          reason: change?.reason ?? null,
+          change,
         };
       }
-      const { text, status, change } = effectiveTailoredText(matched, changesByOriginal);
+      const change = findDocumentChange(b, changes);
+      if (change) {
+        return {
+          originalId: b.id,
+          originalText: change.original_text || originalText,
+          effectiveText: originalText,
+          status: change.status,
+          claimCategory: change.claim_category ?? null,
+          reason: change.reason ?? null,
+          change,
+        };
+      }
       return {
         originalId: b.id,
         originalText,
-        effectiveText: text,
-        status,
-        claimCategory: change?.claim_category ?? null,
-        reason: change?.reason ?? null,
-        change,
+        effectiveText: originalText,
+        status: null,
+        claimCategory: null,
+        reason: null,
+        change: null,
       };
     });
     return {
