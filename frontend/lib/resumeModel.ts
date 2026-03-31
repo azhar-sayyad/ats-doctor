@@ -1,6 +1,7 @@
 import type {
   StructuredResume,
   ResumeBasics,
+  ResumeBullet,
   ResumeSkill,
   ResumeExperience,
   ResumeProject,
@@ -345,6 +346,124 @@ function latexEscape(text: string | null | undefined): string {
     .replace(/~/g, '\\textasciitilde{}')
     .replace(/\^/g, '\\textasciicircum{}')
     .replace(/\u0000/g, '\\textbackslash{}');
+}
+
+/** Inverse of {@link latexEscape} — restores user text from escaped LaTeX. */
+function latexUnescape(text: string): string {
+  return text
+    .replace(/\\textbackslash\{\}/g, '\\')
+    .replace(/\\textasciitilde\{\}/g, '~')
+    .replace(/\\textasciicircum\{\}/g, '^')
+    .replace(/\\&/g, '&')
+    .replace(/\\%/g, '%')
+    .replace(/\\\$/g, '$')
+    .replace(/\\#/g, '#')
+    .replace(/\\_/g, '_')
+    .replace(/\\\{/g, '{')
+    .replace(/\\\}/g, '}');
+}
+
+/**
+ * Best-effort parse of the LaTeX emitted by {@link toLatex} back into the
+ * StructuredResume shape, so the LaTeX editor can drive the live preview.
+ * Returns null when the document is blank or structurally broken.
+ */
+export function parseLatex(tex: string): StructuredResume | null {
+  const clean = tex.replace(/^\s*%.*$/gm, '');
+  if (clean.trim() === '') return null;
+  if (!/\\end\{document\}/.test(clean)) return null;
+
+  const basics: ResumeBasics = {};
+  const center = clean.match(/\\begin\{center\}([\s\S]*?)\\end\{center\}/);
+  if (center) {
+    const nameMatch = center[1].match(/\\LARGE\\bfseries\s*([^}]*)\}/);
+    if (nameMatch) basics.name = latexUnescape(nameMatch[1].trim());
+    const contactMatch = center[1].match(/\\small\s*([\s\S]*)$/);
+    if (contactMatch) {
+      const parts = contactMatch[1].split(' | ').map((p) => latexUnescape(p.trim()));
+      basics.email = parts[0] ?? '';
+      basics.phone = parts[1] ?? '';
+      basics.location = parts[2] ?? '';
+      basics.linkedin = parts[3] ?? '';
+      basics.github = parts[4] ?? '';
+    }
+  }
+
+  const skills: ResumeSkill[] = [];
+  const experience: ResumeExperience[] = [];
+  const projects: ResumeProject[] = [];
+  const education: ResumeEducation[] = [];
+  let summary: string | undefined;
+
+  const sectionRe = /\\section\*\{([^}]*)\}([\s\S]*?)(?=\\section\*\{|\\end\{document\})/g;
+  let section: RegExpExecArray | null;
+  while ((section = sectionRe.exec(clean)) !== null) {
+    const title = latexUnescape(section[1]).trim();
+    const body = section[2];
+    switch (title) {
+      case 'Professional Summary':
+        summary = latexUnescape(body.trim());
+        break;
+      case 'Technical Skills':
+        for (const name of body.trim().split(' · ')) {
+          const n = latexUnescape(name.trim());
+          if (n) skills.push({ name: n });
+        }
+        break;
+      case 'Work Experience':
+        eachSubsection(body, (heading, rest) => {
+          const itemize = rest.match(/\\begin\{itemize\}\s*([\s\S]*?\\end\{itemize\})/);
+          const bullets: ResumeBullet[] = [];
+          if (itemize) {
+            const itemRe = /\\item\s+([\s\S]*?)(?=\\item\s+|\\end\{itemize\})/g;
+            let item: RegExpExecArray | null;
+            while ((item = itemRe.exec(itemize[1])) !== null) {
+              const text = latexUnescape(item[1].trim());
+              if (text) bullets.push({ text });
+            }
+          }
+          if (heading || bullets.length > 0) {
+            experience.push({ company: heading, bullets });
+          }
+        });
+        break;
+      case 'Projects':
+        eachSubsection(body, (name, rest) => {
+          const description = latexUnescape(rest.trim());
+          projects.push({ name, description: description || undefined });
+        });
+        break;
+      case 'Education':
+        eachSubsection(body, (institution, rest) => {
+          const line = latexUnescape(rest.trim());
+          const sep = line.indexOf(' — ');
+          const degree = sep >= 0 ? line.slice(0, sep).trim() : line;
+          const field = sep >= 0 ? line.slice(sep + 3).trim() : '';
+          education.push({
+            institution: institution || undefined,
+            degree: degree || undefined,
+            field: field || undefined,
+          });
+        });
+        break;
+    }
+  }
+
+  const result: StructuredResume = { basics, skills, experience, projects, education };
+  if (summary) result.summary = summary;
+  return result;
+}
+
+/** Runs `visit` for each `\subsection*{heading}` block in a LaTeX section body. */
+function eachSubsection(
+  body: string,
+  visit: (heading: string, rest: string) => void,
+): void {
+  const subRe = /\\subsection\*\{([^}]*)\}([\s\S]*?)(?=\\subsection\*\{|$)/g;
+  let sub: RegExpExecArray | null;
+  while ((sub = subRe.exec(body)) !== null) {
+    visit(latexUnescape(sub[1]).trim(), sub[2]);
+  }
 }
 
 function findTailoredBullet(
