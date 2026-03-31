@@ -208,6 +208,51 @@ export const createAnalysis = (jobId: string, resumeVersionId: string) =>
   apiPost<Analysis>('/analyses', { job_id: jobId, resume_version_id: resumeVersionId });
 export const reanalyze = (id: string) => apiPost<Analysis>(`/analyses/${id}/reanalyze`);
 
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const POLL_INTERVAL_MS = 1500;
+const POLL_TIMEOUT_MS = 60_000;
+
+async function pollUntil<T>(next: () => Promise<T>, isDone: (value: T) => boolean, label: string): Promise<T> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  for (;;) {
+    const value = await next();
+    if (isDone(value)) return value;
+    if (Date.now() >= deadline) {
+      throw new ApiError(408, `Timed out waiting for ${label} to become ready`);
+    }
+    await sleep(POLL_INTERVAL_MS);
+  }
+}
+
+/** Waits (polling) until a freshly-created job finishes parsing (READY/FAILED). */
+export async function waitForJobReady(jobId: string): Promise<Job> {
+  return pollUntil(
+    () => getJob(jobId),
+    (job) => job.state === 'READY' || job.state === 'FAILED',
+    'job',
+  ).then((job) => {
+    if (job.state === 'FAILED') {
+      throw new ApiError(400, 'Job parsing failed', job.error ?? 'The job description could not be parsed.');
+    }
+    return job;
+  });
+}
+
+/** Waits (polling) until an analysis finishes matching/scoring (READY/FAILED). */
+export async function waitForAnalysisReady(analysisId: string): Promise<Analysis> {
+  return pollUntil(
+    () => getAnalysis(analysisId),
+    (a) => a.state === 'READY' || a.state === 'FAILED',
+    'analysis',
+  ).then((a) => {
+    if (a.state === 'FAILED') {
+      throw new ApiError(400, 'Analysis failed', a.error ?? 'The match analysis could not be completed.');
+    }
+    return a;
+  });
+}
+
 // Tailoring
 export const getTailoredResumes = () => apiGet<TailoredResume[]>('/tailored');
 export const tailorAnalysis = (analysisId: string) =>
@@ -220,6 +265,8 @@ export const reviewChange = (tailoredId: string, changeId: string, action: strin
     ...(newText === undefined ? {} : { new_text: newText }),
   });
 export const approveTailored = (id: string) => apiPost<{ status: string }>(`/tailored/${id}/approve`);
+export const editTailoredDocument = (id: string, document: unknown) =>
+  apiPut<TailoredResume>(`/tailored/${id}/edit`, document);
 
 // AI transparency
 export const getAiConfig = () => apiGet<AiConfig>('/ai/config');
