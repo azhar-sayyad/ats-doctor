@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost, ApiError, API_BASE_URL, type Analysis, type Job, type ResumeVersion } from '../../../../lib/api';
 import type { StructuredResume, TailoredChange, TailoredResume, ReviewBusy } from '../types';
 import { buildDocumentModel, computeAnalytics, parseStructured } from '../../../../lib/resumeModel';
-import DocumentViewer from './DocumentViewer';
+import DocumentViewer, { rewrittenChangeCount } from './DocumentViewer';
+import EditWorkspace from './EditWorkspace';
 import AnalyticsPanel from './AnalyticsPanel';
 import JdModal from './JdModal';
 import TraceDrawer from '../TraceDrawer';
-import { AlertCircle, ShieldCheck, Download, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Alert, TailoredBadge, ToolbarButton } from '../../../../components/ui';
+import { Download, ArrowRight, ShieldCheck, FileText, GitCompareArrows, PenLine } from 'lucide-react';
 
 interface Props {
   tailoredId: string;
@@ -19,16 +21,15 @@ interface Props {
   initialResumeVersion: ResumeVersion | null;
 }
 
+type Tab = 'document' | 'changes';
+
 const ACTIVE = new Set(['QUEUED', 'GENERATING', 'VALIDATING']);
 
-const STATE_STYLES: Record<string, string> = {
-  READY: 'bg-proof text-proof-ink font-mono font-bold',
-  NEEDS_REVIEW: 'bg-brand-soft text-brand font-mono font-bold',
-  APPROVED: 'bg-foreground text-white font-mono font-bold',
-  QUEUED: 'bg-brand-soft text-brand font-mono font-bold',
-  GENERATING: 'bg-brand-soft text-brand font-mono font-bold animate-pulse',
-  VALIDATING: 'bg-brand-soft text-brand font-mono font-bold animate-pulse',
-};
+const REVIEW_TABS: { key: Tab | 'edit'; label: string; icon: typeof FileText }[] = [
+  { key: 'document', label: 'Document', icon: FileText },
+  { key: 'changes', label: 'Changes', icon: GitCompareArrows },
+  { key: 'edit', label: 'Edit', icon: PenLine },
+];
 
 const STATE_STEPS: Record<string, number> = {
   QUEUED: 0,
@@ -61,6 +62,8 @@ export default function Workspace({
   const [validation, setValidation] = useState<ValidationReport | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [jdOpen, setJdOpen] = useState(false);
+  const [view, setView] = useState<'review' | 'edit'>('review');
+  const [reviewTab, setReviewTab] = useState<Tab>('document');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -119,6 +122,18 @@ export default function Workspace({
 
   const pending = changes.filter((c) => c.status === 'PENDING').length;
   const active = ACTIVE.has(tailored.state);
+  const changeCount = useMemo(() => rewrittenChangeCount(doc), [doc]);
+  const title =
+    [resume?.basics?.name, analytics.roleTitle].filter(Boolean).join(' - ') || 'Tailored Workspace';
+
+  function goToTab(key: Tab | 'edit') {
+    if (key === 'edit') {
+      setView('edit');
+    } else {
+      setReviewTab(key);
+      setView('review');
+    }
+  }
 
   async function act(change: TailoredChange, action: string, newText?: string) {
     setBusy({ changeId: change.id, action });
@@ -196,85 +211,117 @@ export default function Workspace({
 
   return (
     <>
-      {/* Header Bar */}
-      <div className="mb-6 mt-6 flex flex-col gap-4 border-b border-black/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-            04 / REVIEW & EXPORT
-          </p>
-          <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">Tailored Workspace</h1>
-          <p className="mt-1 text-sm text-muted">
-            Review evidence-backed rewrites inline, resolve every change, then approve and export.
-          </p>
-          <p className="mt-2 font-mono text-xs text-faint">{tailoredId}</p>
-        </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
-          <span
-            className={`rounded-full px-3 py-1 text-[11px] uppercase tracking-wider ${
-              STATE_STYLES[tailored.state] ?? 'bg-black/[0.05] text-muted font-mono font-semibold'
-            }`}
-          >
-            {tailored.state}
-          </span>
+      {/* Common top bar (review + edit) */}
+      <div className="mb-6 mt-2 flex flex-col gap-3 border-b border-black/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h1 className="truncate text-lg font-bold tracking-tight text-foreground">{title}</h1>
+          <TailoredBadge state={tailored.state} />
           {!active && (
             <span className="font-mono text-[10px] text-faint">
               {pending} pending · {changes.length - pending} resolved
             </span>
           )}
         </div>
-      </div>
-
-      {tailored.error && (
-        <Banner tone="error">{tailored.error}</Banner>
-      )}
-      {error && <Banner tone="error">{error}</Banner>}
-      {notice && <Banner tone="success">{notice}</Banner>}
-
-      {active && (
-        <div className="mb-6 rounded-[20px] border border-black/10 bg-surface p-6 sm:p-8 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <span className="h-3 w-3 animate-ping rounded-full bg-brand" />
-            <h2 className="text-lg font-bold tracking-tight text-foreground">Generation in progress</h2>
-          </div>
-          <ol className="mt-6 space-y-3">
-            {steps.map((step, i) => {
-              const done = i < stepIndex;
-              const current = i === stepIndex;
-              return (
-                <li key={step.key} className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {REVIEW_TABS.map(({ key, label, icon: Icon }) => {
+            const isActive = key === 'edit' ? view === 'edit' : view === 'review' && reviewTab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => goToTab(key)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  isActive ? 'bg-foreground text-white' : 'text-faint hover:text-foreground'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+                {key === 'changes' && changeCount > 0 && (
                   <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                      done ? 'bg-proof text-proof-ink' : current ? 'bg-foreground text-white' : 'bg-black/[0.06] text-faint'
+                    className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-black/[0.07] text-faint'
                     }`}
                   >
-                    {done ? '✓' : i + 1}
+                    {changeCount}
                   </span>
-                  <span className={`text-sm ${done ? 'text-faint line-through decoration-black/30' : current ? 'font-semibold text-foreground' : 'text-faint'}`}>
-                    {step.label}
-                    {current && (
-                      <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-brand border-t-transparent align-middle" />
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-          <p className="mt-6 text-sm text-muted">Refreshing automatically — no action needed.</p>
+                )}
+              </button>
+            );
+          })}
+          <ToolbarButton variant="primary" size="sm" onClick={() => handleExport('pdf')}>
+            <Download className="h-3.5 w-3.5" />
+            Download PDF
+          </ToolbarButton>
         </div>
-      )}
-
-      {/* Two-column workspace */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
-        <DocumentViewer doc={doc} busy={busy} onAct={act} onTrace={setOpenChange} />
-        <AnalyticsPanel analytics={analytics} onOpenJd={() => setJdOpen(true)} />
       </div>
 
-      {/* Approve & Export bar */}
+      {tailored.error && <Alert tone="error" className="mb-4">{tailored.error}</Alert>}
+      {error && <Alert tone="error" className="mb-4">{error}</Alert>}
+      {notice && <Alert tone="success" className="mb-4">{notice}</Alert>}
+
+      {view === 'review' && (
+        <>
+          {active && (
+            <div className="mb-6 rounded-[20px] border border-black/10 bg-surface p-6 sm:p-8 shadow-2xs">
+              <div className="flex items-center gap-3">
+                <span className="h-3 w-3 animate-ping rounded-full bg-brand" />
+                <h2 className="text-lg font-bold tracking-tight text-foreground">Generation in progress</h2>
+              </div>
+              <ol className="mt-6 space-y-3">
+                {steps.map((step, i) => {
+                  const done = i < stepIndex;
+                  const current = i === stepIndex;
+                  return (
+                    <li key={step.key} className="flex items-center gap-3">
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                          done ? 'bg-proof text-proof-ink' : current ? 'bg-foreground text-white' : 'bg-black/[0.06] text-faint'
+                        }`}
+                      >
+                        {done ? '✓' : i + 1}
+                      </span>
+                      <span className={`text-sm ${done ? 'text-faint line-through decoration-black/30' : current ? 'font-semibold text-foreground' : 'text-faint'}`}>
+                        {step.label}
+                        {current && (
+                          <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-brand border-t-transparent align-middle" />
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+              <p className="mt-6 text-sm text-muted">Refreshing automatically — no action needed.</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {view === 'edit' ? (
+        <EditWorkspace
+          tailoredId={tailoredId}
+          doc={doc}
+          onDocumentSaved={handleDocumentSaved}
+        />
+      ) : (
+        <>
+          {/* Two-column workspace */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
+            <DocumentViewer
+              doc={doc}
+              busy={busy}
+              tab={reviewTab}
+              onTabChange={setReviewTab}
+              onAct={act}
+              onTrace={setOpenChange}
+            />
+            <AnalyticsPanel analytics={analytics} onOpenJd={() => setJdOpen(true)} />
+          </div>
+
+          {/* Approve & Export bar */}
       <div className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-[20px] bg-foreground p-5 text-white shadow-md sm:flex-row sm:items-center">
         <button
           onClick={checkValidation}
           disabled={busy !== null}
-          className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-proof px-5 py-2.5 text-xs font-bold text-proof-ink transition hover:bg-white"
+          className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-proof px-5 py-2.5 text-xs font-bold text-proof-ink transition hover:bg-white disabled:opacity-40"
         >
           <ShieldCheck className="h-4 w-4 text-brand" />
           <span>Approve & Finalize Resume</span>
@@ -291,8 +338,10 @@ export default function Workspace({
               <span>{format}</span>
             </button>
           ))}
+          </div>
         </div>
-      </div>
+        </>
+      )}
 
       {/* Approval modal */}
       {approveOpen && (
@@ -368,20 +417,5 @@ export default function Workspace({
         <TraceDrawer tailoredId={tailoredId} change={openChange} onClose={() => setOpenChange(null)} />
       )}
     </>
-  );
-}
-
-function Banner({ tone, children }: { tone: 'error' | 'success'; children: React.ReactNode }) {
-  return (
-    <div
-      className={`mb-4 flex items-center gap-2 rounded-xl border p-4 text-sm font-medium ${
-        tone === 'error'
-          ? 'border-coral/30 bg-coral-soft text-coral'
-          : 'border-proof/30 bg-proof/20 text-proof-ink'
-      }`}
-    >
-      {tone === 'error' ? <AlertCircle className="h-4 w-4 shrink-0" /> : <CheckCircle2 className="h-4 w-4 shrink-0 text-brand" />}
-      <span>{children}</span>
-    </div>
   );
 }
