@@ -97,14 +97,19 @@ export default function Workspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tailored.state, tailoredId]);
 
+  // After a full-document edit the saved `document` is authoritative; otherwise
+  // the viewer reconciles master structured data + tailored content + changes.
   const resume = useMemo(
-    () => parseStructured<StructuredResume>(initialResumeVersion?.structured_data ?? null),
-    [initialResumeVersion],
+    () =>
+      tailored.document
+        ? parseStructured<StructuredResume>(tailored.document)
+        : parseStructured<StructuredResume>(initialResumeVersion?.structured_data ?? null),
+    [tailored.document, initialResumeVersion],
   );
 
   const doc = useMemo(
-    () => buildDocumentModel(resume, tailored.content, changes),
-    [resume, tailored.content, changes],
+    () => buildDocumentModel(resume, tailored.document ? null : tailored.content, changes),
+    [resume, tailored.document, tailored.content, changes],
   );
 
   const analytics = useMemo(
