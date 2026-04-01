@@ -1,20 +1,32 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { TailoredChange, ReviewBusy } from '../types';
 import type { DocModel, DocSection, DocBullet } from '../../../../lib/resumeModel';
 import { rewrittenBullets } from '../../../../lib/resumeModel';
 import DiffText from '../../../../components/DiffText';
-import { Check, Edit3, RefreshCw, HelpCircle, FileText, GitCompareArrows, PenLine } from 'lucide-react';
+import { EmptyState } from '../../../../components/ui';
+import { ResumePreview, ResumeShell } from './ResumePreview';
+import {
+  Check,
+  Edit3,
+  RefreshCw,
+  HelpCircle,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+} from 'lucide-react';
 
 interface Props {
   doc: DocModel | null;
   busy: ReviewBusy | null;
+  tab: Tab;
+  onTabChange: (tab: Tab) => void;
   onAct: (change: TailoredChange, action: string, newText?: string) => void;
   onTrace: (change: TailoredChange) => void;
 }
 
-type Tab = 'document' | 'changes' | 'edit';
+type Tab = 'document' | 'changes';
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: 'bg-coral-soft text-coral font-mono font-bold',
@@ -24,219 +36,44 @@ const STATUS_STYLES: Record<string, string> = {
   REJECTED: 'bg-black/[0.06] text-muted font-mono font-semibold',
 };
 
-const TABS: { key: Tab; label: string; icon: typeof FileText }[] = [
-  { key: 'document', label: 'Document', icon: FileText },
-  { key: 'changes', label: 'Changes', icon: GitCompareArrows },
-  { key: 'edit', label: 'Edit', icon: PenLine },
-];
+export function rewrittenChangeCount(doc: DocModel | null): number {
+  return doc ? rewrittenBullets(doc).length : 0;
+}
 
-export default function DocumentViewer({ doc, busy, onAct, onTrace }: Props) {
-  const [tab, setTab] = useState<Tab>('document');
+export default function DocumentViewer({ doc, busy, tab, onTabChange, onAct, onTrace }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [edits, setEdits] = useState<Record<string, string>>({});
-
-  const rewritten = rewrittenBullets(doc);
-  const changeCount = rewritten.length;
+  const [openBullet, setOpenBullet] = useState<string | null>(null);
 
   return (
-    <div className="rounded-[24px] border border-black/10 bg-white shadow-xs">
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 border-b border-black/10 px-4 pt-3">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`inline-flex items-center gap-1.5 rounded-t-xl px-4 py-2.5 text-xs font-semibold transition ${
-              tab === key
-                ? 'bg-surface text-foreground border border-b-0 border-black/10 -mb-px'
-                : 'text-faint hover:text-foreground'
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-            {key === 'changes' && changeCount > 0 && (
-              <span
-                className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
-                  tab === key ? 'bg-brand text-white' : 'bg-black/[0.07] text-faint'
-                }`}
-              >
-                {changeCount}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      <div className="p-4 sm:p-6">
-        {tab === 'document' && <DocumentPage doc={doc} />}
-        {tab === 'changes' && (
-          <ChangesList
-            rewritten={rewritten}
-            busy={busy}
-            onAct={onAct}
-            onTrace={onTrace}
-            editingId={editingId}
-            setEditingId={setEditingId}
-            draft={draft}
-            setDraft={setDraft}
-          />
-        )}
-        {tab === 'edit' && (
-          <EditList
-            doc={doc}
-            rewritten={rewritten}
-            busy={busy}
-            onAct={onAct}
-            edits={edits}
-            setEdits={setEdits}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Document tab — clean A4 preview of the effective (final) text.
-// ---------------------------------------------------------------------------
-
-function DocumentPage({ doc }: { doc: DocModel | null }) {
-  if (!doc) {
-    return <EmptyState label="No resume document available." />;
-  }
-  const contact = [doc.basics.email, doc.basics.phone, doc.basics.location, doc.basics.linkedin, doc.basics.github]
-    .filter(Boolean)
-    .join('  ·  ');
-
-  return (
-    <div className="a4-scroll mx-auto w-full max-w-[620px] aspect-[210/297] overflow-y-auto rounded-lg border border-black/10 bg-white shadow-lg">
-      <div className="flex min-h-full flex-col px-10 py-9">
-        {doc.basics.name && (
-          <h1 className="font-editorial text-2xl font-semibold tracking-tight text-foreground">
-            {doc.basics.name}
-          </h1>
-        )}
-        {contact && <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-muted">{contact}</p>}
-
-        <div className="mt-5 space-y-4">
-          {doc.summary && (
-            <div>
-              <SectionRule />
-              <p className="text-[11px] leading-relaxed text-foreground">{doc.summary.effective}</p>
-            </div>
-          )}
-
-          {doc.skills.length > 0 && (
-            <div>
-              <SectionRule label="Skills" />
-              <div className="flex flex-wrap gap-1.5">
-                {doc.skills.map((skill, i) => (
-                  <span
-                    key={i}
-                    className="rounded-md border border-black/10 bg-surface px-2 py-0.5 text-[9px] font-mono text-foreground"
-                  >
-                    {skill.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {doc.sections.length > 0 && (
-            <div>
-              <SectionRule label="Experience" />
-              <div className="space-y-4">
-                {doc.sections.map((section, i) => (
-                  <ExperienceBlock key={i} section={section} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {doc.projects.length > 0 && (
-            <div>
-              <SectionRule label="Projects" />
-              <div className="space-y-2">
-                {doc.projects.map((project, i) => (
-                  <div key={i}>
-                    <p className="text-[11px] font-bold text-foreground">{project.name}</p>
-                    {project.description && (
-                      <p className="text-[11px] leading-relaxed text-muted">{project.description}</p>
-                    )}
-                    {(project.technologies ?? []).length > 0 && (
-                      <p className="mt-0.5 font-mono text-[8px] uppercase tracking-wider text-faint">
-                        {project.technologies!.join(', ')}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {doc.education.length > 0 && (
-            <div>
-              <SectionRule label="Education" />
-              <div className="space-y-1.5">
-                {doc.education.map((edu, i) => (
-                  <p key={i} className="text-[11px] text-foreground">
-                    <span className="font-semibold">{[edu.degree, edu.field].filter(Boolean).join(' — ')}</span>
-                    {edu.institution ? `, ${edu.institution}` : ''}
-                    {[edu.start, edu.end].filter(Boolean).length > 0 && (
-                      <span className="text-muted"> · {[edu.start, edu.end].filter(Boolean).join(' – ')}</span>
-                    )}
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SectionRule({ label }: { label?: string }) {
-  return (
-    <div className="mb-1.5 flex items-center gap-2">
-      {label && (
-        <span className="font-mono text-[8px] font-bold uppercase tracking-[0.2em] text-brand">{label}</span>
+    <div className="rounded-[24px] border border-black/10 bg-white p-4 sm:p-6 shadow-xs">
+      {tab === 'document' && <ResumePreview doc={doc} />}
+      {tab === 'changes' && (
+        <ChangesReview
+          doc={doc}
+          busy={busy}
+          onAct={onAct}
+          onTrace={onTrace}
+          editingId={editingId}
+          setEditingId={setEditingId}
+          draft={draft}
+          setDraft={setDraft}
+          openBullet={openBullet}
+          setOpenBullet={setOpenBullet}
+        />
       )}
-      <div className="h-px flex-1 bg-black/15" />
-    </div>
-  );
-}
-
-function ExperienceBlock({ section }: { section: DocSection }) {
-  const dates = [section.start, section.end].filter(Boolean).join(' – ');
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[11px] font-bold text-foreground">
-          {[section.title, section.company].filter(Boolean).join(' · ')}
-          {section.location ? <span className="font-normal text-muted"> — {section.location}</span> : null}
-        </p>
-        {dates && <p className="shrink-0 font-mono text-[8px] text-faint">{dates}</p>}
-      </div>
-      <ul className="mt-1 space-y-1">
-        {section.bullets.map((bullet, j) => (
-          <li key={j} className="flex gap-1.5 text-[10.5px] leading-relaxed">
-            <span className="mt-[0.35em] h-[3px] w-[3px] shrink-0 rounded-full bg-foreground/70" />
-            <span className="text-foreground">{bullet.effectiveText}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Changes tab — review controls for every rewritten bullet.
+// Changes tab — the same resume view with inline tracked changes
+// (green = added, struck-through = removed, ★ = new bullet) and inline
+// review controls on every changed bullet.
 // ---------------------------------------------------------------------------
 
-function ChangesList({
-  rewritten,
+function ChangesReview({
+  doc,
   busy,
   onAct,
   onTrace,
@@ -244,8 +81,10 @@ function ChangesList({
   setEditingId,
   draft,
   setDraft,
+  openBullet,
+  setOpenBullet,
 }: {
-  rewritten: { section: DocSection; bullet: DocBullet }[];
+  doc: DocModel | null;
   busy: ReviewBusy | null;
   onAct: (change: TailoredChange, action: string, newText?: string) => void;
   onTrace: (change: TailoredChange) => void;
@@ -253,132 +92,204 @@ function ChangesList({
   setEditingId: (id: string | null) => void;
   draft: string;
   setDraft: (v: string) => void;
+  openBullet: string | null;
+  setOpenBullet: (id: string | null) => void;
 }) {
-  if (rewritten.length === 0) {
-    return <EmptyState label="No tailored changes yet. This tab unlocks once the run finishes." />;
+  if (!doc) {
+    return <EmptyState label="No resume document available." />;
   }
-
-  let lastSection: DocSection | null = null;
   return (
-    <div className="space-y-4">
-      {rewritten.map(({ section, bullet }) => {
-        const change = bullet.change;
-        const newSection = lastSection !== section;
-        lastSection = section;
-        if (!change) return null;
-        return (
-          <div key={change.id}>
-            {newSection && (
-              <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-widest text-brand">
-                {section.company}
-                {section.title ? ` · ${section.title}` : ''}
-              </p>
-            )}
-            <div className="rounded-2xl border border-black/10 bg-surface p-4">
-              {isNewBullet(bullet) && (
-                <span className="mb-2 inline-block rounded-full bg-brand text-white px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2 px-1">
+        <span className="inline-flex items-center gap-1 rounded-md bg-brand/10 px-2 py-1 font-mono text-[9px] font-bold text-brand">
+          <span className="rounded-[3px] bg-brand/20 px-1">+ added</span>
+        </span>
+        <span className="rounded-md bg-black/[0.05] px-2 py-1 font-mono text-[9px] text-muted line-through decoration-black/30">
+          removed
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-md bg-brand/10 px-2 py-1 font-mono text-[9px] font-bold text-brand">
+          <Sparkles className="h-2.5 w-2.5" />
+          new bullet
+        </span>
+        <span className="ml-auto hidden text-[10px] text-faint sm:inline">
+          Click a highlighted bullet to review it.
+        </span>
+      </div>
+      <ResumeShell
+        doc={doc}
+        renderBullet={(section, bullet) => {
+          const change = bullet.change;
+          const open = change !== null && openBullet === change.id;
+          return (
+            <DiffBullet
+              section={section}
+              bullet={bullet}
+              open={open}
+              onToggle={() => setOpenBullet(change === null ? null : open ? null : change.id)}
+              busy={busy}
+              onAct={onAct}
+              onTrace={onTrace}
+              editing={editingId !== null && change !== null && editingId === change.id}
+              setEditing={setEditingId}
+              draft={draft}
+              setDraft={setDraft}
+            />
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+function DiffBullet({
+  section,
+  bullet,
+  open,
+  onToggle,
+  busy,
+  onAct,
+  onTrace,
+  editing,
+  setEditing,
+  draft,
+  setDraft,
+}: {
+  section: DocSection;
+  bullet: DocBullet;
+  open: boolean;
+  onToggle: () => void;
+  busy: ReviewBusy | null;
+  onAct: (change: TailoredChange, action: string, newText?: string) => void;
+  onTrace: (change: TailoredChange) => void;
+  editing: boolean;
+  setEditing: (id: string | null) => void;
+  draft: string;
+  setDraft: (v: string) => void;
+}) {
+  const change = bullet.change;
+  const hasChange = change !== null;
+  const isNew = isNewBullet(bullet);
+
+  return (
+    <span className="flex items-start gap-1.5">
+      <span className="mt-[0.35em] h-[3px] w-[3px] shrink-0 rounded-full bg-foreground/70" />
+      <span className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={hasChange ? onToggle : undefined}
+          title={hasChange ? (open ? 'Hide review controls' : 'Show review controls') : undefined}
+          className={`block w-full text-left ${
+            hasChange ? '-mx-1 rounded-md px-1 transition hover:bg-brand-soft/50' : ''
+          }`}
+        >
+          {hasChange && (
+            <span className="mr-1 inline-block -translate-y-px align-middle">
+              {open ? (
+                <ChevronDown className="h-3 w-3 text-brand" />
+              ) : (
+                <ChevronRight className="h-3 w-3 text-faint" />
+              )}
+            </span>
+          )}
+          {isNew ? (
+            <span className="rounded-[3px] bg-brand/10 font-semibold text-brand">{bullet.effectiveText}</span>
+          ) : hasChange && bullet.status === 'REJECTED' ? (
+            <span className="text-muted">{bullet.effectiveText}</span>
+          ) : hasChange ? (
+            <DiffText original={bullet.originalText} tailored={bullet.effectiveText} mode="full" />
+          ) : (
+            <span className="text-foreground">{bullet.effectiveText}</span>
+          )}
+        </button>
+
+        {hasChange && open && (
+          <div className="mt-1.5 rounded-xl border border-black/10 bg-surface p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[8px] uppercase tracking-wider ${
+                  STATUS_STYLES[bullet.status ?? ''] ?? 'bg-black/[0.05] text-muted'
+                }`}
+              >
+                {bullet.status ?? '—'}
+              </span>
+              {isNew && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white">
+                  <Sparkles className="h-2.5 w-2.5" />
                   New bullet
                 </span>
               )}
-              <div className={`grid gap-3 sm:grid-cols-2 ${isNewBullet(bullet) ? 'mt-2' : ''}`}>
-                <div className="rounded-xl bg-white p-3">
-                  <p className="mb-1.5 font-mono text-[8px] font-bold uppercase tracking-widest text-faint">
-                    01 / Original
-                  </p>
-                  {isNewBullet(bullet) ? (
-                    <p className="text-xs italic leading-relaxed text-faint">— none (brand-new bullet) —</p>
-                  ) : (
-                    <p className="text-xs leading-relaxed text-muted line-through decoration-black/30">
-                      {bullet.originalText}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-xl border-l-4 border-brand bg-white p-3">
-                  <p className="mb-1.5 font-mono text-[8px] font-bold uppercase tracking-widest text-brand">
-                    02 / Rewrite
-                  </p>
-                  {editingId === change.id ? (
-                    <textarea
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      rows={3}
-                      className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-foreground focus:border-brand focus:outline-none"
-                    />
-                  ) : (
-                    <p className="text-xs font-semibold leading-relaxed text-foreground">
-                      <DiffText original={bullet.originalText} tailored={bullet.effectiveText} />
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-black/10 pt-3">
-                <span className={`rounded-full px-2.5 py-0.5 text-[9px] uppercase tracking-wider ${STATUS_STYLES[bullet.status ?? ''] ?? 'bg-black/[0.05] text-muted'}`}>
-                  {bullet.status ?? '—'}
+              {bullet.claimCategory && (
+                <span className="rounded-md bg-black/[0.05] px-2 py-0.5 font-mono text-[9px] text-muted">
+                  {bullet.claimCategory}
                 </span>
-                {bullet.claimCategory && (
-                  <span className="rounded-md bg-black/[0.05] px-2 py-0.5 font-mono text-[10px] text-muted">
-                    {bullet.claimCategory}
-                  </span>
-                )}
-                {bullet.reason && <span className="max-w-[220px] truncate font-mono text-[10px] text-faint">{bullet.reason}</span>}
-
-                {editingId === change.id ? (
-                  <div className="ml-auto flex items-center gap-2">
-                    <button
-                      onClick={() => onAct(change, 'edit', draft.trim())}
-                      disabled={busy !== null || draft.trim() === ''}
-                      className="inline-flex items-center gap-1 rounded-lg bg-brand px-3 py-1 text-xs font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
-                    >
-                      <Check className="h-3 w-3" /> Save
-                    </button>
-                    <button
-                      onClick={() => setEditingId(null)}
-                      className="rounded-lg border border-black/15 px-3 py-1 text-xs font-semibold text-muted hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="ml-auto flex items-center gap-1.5">
-                    {bullet.status === 'PENDING' && (
-                      <>
-                        <ActionBtn onClick={() => onAct(change, 'accept')} disabled={busy !== null} className="bg-proof text-proof-ink hover:bg-white">
-                          <Check className="h-3 w-3" /> Accept
-                        </ActionBtn>
-                        <ActionBtn onClick={() => onAct(change, 'reject')} disabled={busy !== null} className="hover:text-coral hover:bg-coral-soft">
-                          Reject
-                        </ActionBtn>
-                        <ActionBtn onClick={() => onAct(change, 'regenerate')} disabled={busy !== null} className="hover:text-brand hover:bg-brand-soft">
-                          <RefreshCw className="h-3 w-3" /> Re-generate
-                        </ActionBtn>
-                      </>
-                    )}
-                    <ActionBtn
-                      onClick={() => {
-                        setEditingId(change.id);
-                        setDraft(bullet.effectiveText);
-                      }}
-                      disabled={busy !== null}
-                      className="hover:text-foreground hover:bg-white"
-                    >
-                      <Edit3 className="h-3 w-3" /> Re-edit
-                    </ActionBtn>
-                    <button
-                      onClick={() => onTrace(change)}
-                      className="inline-flex items-center gap-1 rounded-lg bg-brand-soft px-3 py-1 font-mono text-[10px] font-bold text-brand hover:bg-brand hover:text-white transition"
-                    >
-                      <HelpCircle className="h-3 w-3" />
-                      <span>Why?</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+              )}
+              {bullet.reason && (
+                <span className="max-w-[220px] truncate font-mono text-[9px] text-faint">{bullet.reason}</span>
+              )}
             </div>
+
+            {editing ? (
+              <div className="mt-2">
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-foreground focus:border-brand focus:outline-none"
+                />
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setEditing(null)}
+                    className="rounded-lg border border-black/15 px-3 py-1 text-xs font-semibold text-muted hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => onAct(change, 'edit', draft.trim())}
+                    disabled={busy !== null || draft.trim() === ''}
+                    className="inline-flex items-center gap-1 rounded-lg bg-brand px-3 py-1 text-xs font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
+                  >
+                    <Check className="h-3 w-3" /> Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-black/10 pt-2">
+                {bullet.status === 'PENDING' && (
+                  <>
+                    <ActionBtn onClick={() => onAct(change, 'accept')} disabled={busy !== null} className="bg-proof text-proof-ink hover:bg-white">
+                      <Check className="h-3 w-3" /> Accept
+                    </ActionBtn>
+                    <ActionBtn onClick={() => onAct(change, 'reject')} disabled={busy !== null} className="hover:text-coral hover:bg-coral-soft">
+                      Reject
+                    </ActionBtn>
+                    <ActionBtn onClick={() => onAct(change, 'regenerate')} disabled={busy !== null} className="hover:text-brand hover:bg-brand-soft">
+                      <RefreshCw className="h-3 w-3" /> Re-generate
+                    </ActionBtn>
+                  </>
+                )}
+                <ActionBtn
+                  onClick={() => {
+                    setEditing(change.id);
+                    setDraft(bullet.effectiveText);
+                  }}
+                  disabled={busy !== null}
+                  className="hover:text-foreground hover:bg-white"
+                >
+                  <Edit3 className="h-3 w-3" /> Re-edit
+                </ActionBtn>
+                <button
+                  onClick={() => onTrace(change)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-brand-soft px-3 py-1 font-mono text-[9px] font-bold text-brand hover:bg-brand hover:text-white transition"
+                >
+                  <HelpCircle className="h-3 w-3" />
+                  <span>Why?</span>
+                </button>
+              </div>
+            )}
           </div>
-        );
-      })}
-    </div>
+        )}
+      </span>
+    </span>
   );
 }
 
@@ -391,7 +302,7 @@ function ActionBtn({
   onClick: () => void;
   disabled: boolean;
   className: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
