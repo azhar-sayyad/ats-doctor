@@ -178,6 +178,15 @@ export default function Workspace({
     window.open(`${API_BASE_URL}/tailored/${tailoredId}/export/${format}`, '_blank');
   }
 
+  function handleDocumentSaved(updated: TailoredResume) {
+    setTailored(updated);
+    apiGet<TailoredChange[]>(`/tailored/${tailoredId}/changes`)
+      .then(setChanges)
+      .catch((err: unknown) =>
+        setError(err instanceof ApiError ? err.detail ?? err.message : String(err)),
+      );
+  }
+
   const steps = [
     { key: 'QUEUED', label: 'Queued — preparing the tailoring run' },
     { key: 'GENERATING', label: 'Generating — rewriting bullets with AI' },
