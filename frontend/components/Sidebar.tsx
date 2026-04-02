@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   apiGet,
-  ApiError,
   getCurrentResume,
   getJobs,
   getAnalyses,
@@ -23,9 +22,9 @@ import {
   Sparkles,
   LayoutDashboard,
   ShieldCheck,
-  CheckCircle2,
-  ChevronRight,
-  HelpCircle,
+  Search,
+  Wand2,
+  UserCircle2,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -65,9 +64,8 @@ export default function Sidebar() {
         ? pathname === '/tailored' || pathname.startsWith('/tailored/')
         : pathname === href || pathname.startsWith(href + '/');
 
-  const steps = [
+  const navItems = [
     {
-      num: '01',
       label: 'Master Resume',
       href: '/resume',
       icon: FileText,
@@ -75,28 +73,39 @@ export default function Sidebar() {
       ready: Boolean(resume && resume.state === 'READY'),
     },
     {
-      num: '02',
-      label: 'Target Roles',
+      label: 'Target Jobs',
       href: '/jobs',
       icon: Briefcase,
       badge: jobs === null ? '…' : `${jobs.length} saved`,
       ready: Boolean(jobs && jobs.length > 0),
     },
     {
-      num: '03',
-      label: 'Match & Job Scan',
+      label: 'Match Analyses',
       href: '/analyses',
       icon: Target,
       badge: analyses === null ? '…' : `${analyses.length} runs`,
       ready: Boolean(analyses && analyses.length > 0),
     },
     {
-      num: '04',
       label: 'Tailored Resumes',
       href: '/tailored',
       icon: Sparkles,
       badge: tailored === null ? '…' : `${tailored.length} runs`,
       ready: Boolean(tailored && tailored.length > 0),
+    },
+    {
+      label: 'Job Scan',
+      href: '/job-scan',
+      icon: Search,
+      badge: null,
+      ready: false,
+    },
+    {
+      label: 'Tailor Wizard',
+      href: '/tailor',
+      icon: Wand2,
+      badge: null,
+      ready: false,
     },
   ];
 
@@ -145,10 +154,10 @@ export default function Sidebar() {
 
         <div>
           <p className="px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-faint mb-2">
-            4-Step Application Workflow
+            Workspace
           </p>
           <nav className="space-y-1">
-            {steps.map((s) => {
+            {navItems.map((s) => {
               const active = isActive(s.href);
               const Icon = s.icon;
               return (
@@ -162,31 +171,43 @@ export default function Sidebar() {
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span
-                      className={`font-mono text-[10px] font-bold ${
-                        active ? 'text-proof' : 'text-faint'
-                      }`}
-                    >
-                      {s.num}
-                    </span>
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="truncate text-xs">{s.label}</span>
                   </div>
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-mono text-[9px] font-bold shrink-0 ${
-                      active
-                        ? 'bg-white/20 text-white'
-                        : s.ready
-                          ? 'bg-proof text-proof-ink'
-                          : 'bg-black/[0.05] text-faint'
-                    }`}
-                  >
-                    {s.badge}
-                  </span>
+                  {s.badge !== null && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 font-mono text-[9px] font-bold shrink-0 ${
+                        active
+                          ? 'bg-white/20 text-white'
+                          : s.ready
+                            ? 'bg-proof text-proof-ink'
+                            : 'bg-black/[0.05] text-faint'
+                      }`}
+                    >
+                      {s.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
           </nav>
+        </div>
+
+        <div>
+          <p className="px-3 font-mono text-[10px] font-bold uppercase tracking-widest text-faint mb-2">
+            Account
+          </p>
+          <Link
+            href="/profile"
+            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs transition ${
+              isActive('/profile')
+                ? 'bg-brand text-white shadow-xs font-semibold'
+                : 'text-muted hover:text-foreground hover:bg-black/[0.04]'
+            }`}
+          >
+            <UserCircle2 className="h-4 w-4 shrink-0" />
+            <span>Profile</span>
+          </Link>
         </div>
       </div>
 
