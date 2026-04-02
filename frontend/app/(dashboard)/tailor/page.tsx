@@ -4,29 +4,28 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getCurrentResume,
-  getJobs,
   createJobFromText,
   createAnalysis,
   tailorAnalysis,
+  waitForJobReady,
+  waitForAnalysisReady,
   ApiError,
   type ResumeVersion,
-  type Job,
-  type Analysis,
   type TailoredResume,
 } from '../../../lib/api';
 import StepGuide from '../../../components/StepGuide';
-import { Wand2, Sparkles, FileText, Briefcase, Download, CheckCircle2, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Wand2, FileText, Briefcase, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 export default function TailorWizardPage() {
   const router = useRouter();
   const [resume, setResume] = useState<ResumeVersion | null>(null);
-  const [jobs, setJobs] = useState<Job[] | null>(null);
   const [selectedResumeId, setSelectedResumeId] = useState('');
   const [title, setTitle] = useState('');
   const [company, setCompany] = useState('');
   const [jdText, setJdText] = useState('');
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [tailoring, setTailoring] = useState(false);
+  const [stage, setStage] = useState<'job' | 'analysis' | 'tailoring' | null>(null);
   const [tailoredResult, setTailoredResult] = useState<TailoredResume | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,10 +36,6 @@ export default function TailorWizardPage() {
         setSelectedResumeId(r.id);
       })
       .catch(() => setResume(null));
-
-    getJobs()
-      .then(setJobs)
-      .catch(() => setJobs(null));
   }, []);
 
   const runTailorWizard = async () => {
@@ -55,11 +50,16 @@ export default function TailorWizardPage() {
     setError(null);
     setTailoring(true);
     try {
-      // 1. Create job
+      // 1. Create job and wait for it to finish parsing
+      setStage('job');
       const job = await createJobFromText(jdText.trim());
-      // 2. Queue analysis
+      await waitForJobReady(job.id);
+      // 2. Queue analysis and wait for the match to complete
+      setStage('analysis');
       const analysis = await createAnalysis(job.id, selectedResumeId);
+      await waitForAnalysisReady(analysis.id);
       // 3. Queue tailoring run
+      setStage('tailoring');
       const tailored = await tailorAnalysis(analysis.id);
       setTailoredResult(tailored);
       setStep(3);
@@ -68,6 +68,7 @@ export default function TailorWizardPage() {
       setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
     } finally {
       setTailoring(false);
+      setStage(null);
     }
   };
 
@@ -235,7 +236,15 @@ export default function TailorWizardPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-2.5 text-xs font-bold text-white transition hover:bg-brand-hover disabled:opacity-40 shadow-sm"
             >
               {tailoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4 text-proof" />}
-              <span>{tailoring ? 'Tailoring resume…' : 'Generate Role-Tailored Resume'}</span>
+              <span>
+                {tailoring
+                  ? stage === 'job'
+                    ? 'Parsing job description…'
+                    : stage === 'analysis'
+                      ? 'Running match analysis…'
+                      : 'Tailoring resume…'
+                  : 'Generate Role-Tailored Resume'}
+              </span>
             </button>
           </div>
         </section>
