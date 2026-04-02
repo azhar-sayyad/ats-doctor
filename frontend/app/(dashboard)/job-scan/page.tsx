@@ -13,7 +13,7 @@ import {
   type ResumeVersion,
   type Analysis,
 } from '../../../lib/api';
-import StepGuide from '../../../components/StepGuide';
+// import StepGuide from '../../../components/StepGuide';
 import AnalysisDetail from '../../../components/analyses/AnalysisDetail';
 import { Search, FileText, Loader2, AlertCircle } from 'lucide-react';
 
@@ -108,19 +108,15 @@ export default function JobScanPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <StepGuide
-        step={3}
+      {/* <StepGuide
         title="Job Scan Diagnostic Tool"
         description="Scan any job description against your master resume to detect missing hard skills, ATS compatibility warnings, and match score."
         nextHref="/tailored"
         nextLabel="Proceed to Tailor →"
-      />
+      /> */}
 
       {/* Header Bar */}
       <div className="mb-8 border-b border-black/10 pb-6">
-        <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-          DIAGNOSTIC SCANNER
-        </p>
         <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">Job Scan</h1>
         <p className="mt-1 text-sm text-muted">
           Instant compatibility check — see matched vs missing hard skills before tailoring.
