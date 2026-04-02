@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiGet, apiPut, ApiError, type AiConfig } from '../../../lib/api';
-import StepGuide from '../../../components/StepGuide';
+// import StepGuide from '../../../components/StepGuide';
 import { User, Settings, ShieldCheck, Cpu, Sliders, CheckCircle2, AlertCircle, Save } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -40,20 +40,16 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <StepGuide
-        step={4}
+      {/* <StepGuide
         title="Account Profile & AI Settings"
         description="Configure your candidate profile, default AI output tone, model profiles, and privacy controls."
         nextHref="/dashboard"
         nextLabel="Back to Dashboard Hub →"
-      />
+      /> */}
 
       {/* Header Bar */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/10 pb-6">
         <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-            05 / PREFERENCES & SECURITY
-          </p>
           <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">Profile & Settings</h1>
           <p className="mt-1 text-sm text-muted">
             Manage your personal defaults, template choices, and local-first AI privacy parameters.
