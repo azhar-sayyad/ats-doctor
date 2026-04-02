@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, createJobFromFile, createJobFromText, deleteJob, getJob, getJobs, type Job } from '../../../lib/api';
 import { Badge } from '../../../components/ui';
-import StepGuide from '../../../components/StepGuide';
+// import StepGuide from '../../../components/StepGuide';
 import JobDrawer from '../../../components/jobs/JobDrawer';
 import { Briefcase, FileText, Plus, Trash2, ArrowRight, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
@@ -154,20 +154,16 @@ export default function JobsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <StepGuide
-        step={2}
+      {/* <StepGuide
         title="Step 2: Add Target Job Postings"
         description="Paste job description text or upload posting files to extract role requirements and skill signals."
         nextHref="/analyses"
         nextLabel="Step 3: Run Fit Analysis →"
-      />
+      /> */}
 
       {/* Header Bar */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/10 pb-6">
         <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-            02 / ROLE SIGNAL
-          </p>
           <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">Job Descriptions</h1>
           <p className="mt-1 text-sm text-muted">
             Paste a job description or upload a file — ATSDoctor extracts requirements and skill signals automatically.
