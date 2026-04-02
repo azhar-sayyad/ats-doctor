@@ -13,7 +13,7 @@ import {
   type ResumeVersion,
   type TailoredResume,
 } from '../../../lib/api';
-import StepGuide from '../../../components/StepGuide';
+// import StepGuide from '../../../components/StepGuide';
 import { Wand2, FileText, Briefcase, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 export default function TailorWizardPage() {
@@ -77,19 +77,15 @@ export default function TailorWizardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <StepGuide
-        step={3}
+      {/* <StepGuide
         title="Tailor a Job Wizard"
         description="Select a base resume, input target job requirements, and generate evidence-grounded ATS rewrites."
         nextHref="/tailored"
         nextLabel="View Tailored Resumes →"
-      />
+      /> */}
 
       {/* Header Bar */}
       <div className="mb-8 border-b border-black/10 pb-6">
-        <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-          TAILORING WIZARD
-        </p>
         <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">Tailor a Job</h1>
         <p className="mt-1 text-sm text-muted">
           Align your experience with target job criteria while staying 100% truthful to your master resume.
