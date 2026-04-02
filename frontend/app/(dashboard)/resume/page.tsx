@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, apiGet, apiPut, apiUpload, type ResumeVersion } from '../../../lib/api';
 import type { StructuredResume } from '../tailored/types';
 import { parseStructured, cloneResume } from '../../../lib/resumeModel';
+// import StepGuide from '../../../components/StepGuide';
 import ResumeForm from '../../../components/ResumeForm';
 import { UploadCloud, CheckCircle2, AlertCircle, Loader2, Save, FileText } from 'lucide-react';
 
@@ -127,20 +128,16 @@ export default function ResumePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <StepGuide
-        step={1}
+      {/* <StepGuide
         title="Step 1: Upload & Structure Master Resume"
         description="Add your core resume once. ATSDoctor extracts, structures, and evidence-traces your experience."
         nextHref="/jobs"
         nextLabel="Step 2: Target Roles →"
-      />
+      /> */}
 
       {/* Header Bar */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/10 pb-6">
         <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-            01 / CAREER SOURCE
-          </p>
           <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">Master Resume</h1>
           <p className="mt-1 text-sm text-muted">
             Upload your master resume once. ATSDoctor extracts, structures, and evidence-traces your experience.
