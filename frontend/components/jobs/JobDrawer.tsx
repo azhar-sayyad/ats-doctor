@@ -88,9 +88,6 @@ export default function JobDrawer({ job, jobId, onClose, onJobUpdate }: Props) {
       >
         <div className="flex items-start justify-between gap-4 border-b border-black/10 pb-5">
           <div>
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-              02 / ROLE REQUIREMENTS
-            </p>
             {job && (
               <>
                 <h2 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-foreground">
