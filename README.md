@@ -50,6 +50,17 @@ cd frontend && npm install && npm run dev
 - `ATS_DOCTOR_AI_MODE=omniroute`: delegates chat completions to OmniRoute via
   `SPRING_AI_OPENAI_BASE_URL` (see `.env.example`).
 
+OmniRoute itself is deployment-only and external. For local end-to-end work in
+`omniroute` mode without a real gateway, run the included dev stand-in
+(`omniroute/dev-gateway/mock_gateway.py`) and point the base URL at it:
+
+```bash
+python3 omniroute/dev-gateway/mock_gateway.py 8080 &
+ATS_DOCTOR_AI_MODE=omniroute \
+SPRING_AI_OPENAI_BASE_URL=http://localhost:8080 \
+cd backend && mvn spring-boot:run
+```
+
 ## Repository layout
 
 ```text
