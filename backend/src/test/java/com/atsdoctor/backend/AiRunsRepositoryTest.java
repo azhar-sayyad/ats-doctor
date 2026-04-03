@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AiRunsRepositoryTest {
 
     @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine")
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("pgvector/pgvector:pg15")
             .withDatabaseName("ats")
             .withUsername("ats")
             .withPassword("ats");
