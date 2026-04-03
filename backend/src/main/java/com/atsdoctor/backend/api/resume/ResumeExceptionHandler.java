@@ -5,6 +5,8 @@ import com.atsdoctor.backend.application.resume.ResumeNotReadyException;
 import com.atsdoctor.backend.application.resume.ResumeStorageException;
 import com.atsdoctor.backend.application.resume.ResumeValidationException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -12,8 +14,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
  * RFC 7807 ProblemDetail mapping for resume endpoints (07-api-contract, PRD §8).
+ * Ordered before the global fallback so domain exceptions always win.
  */
 @RestControllerAdvice(assignableTypes = ResumeController.class)
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @ConditionalOnProperty(name = "ats.doctor.persistence.enabled", havingValue = "true")
 public class ResumeExceptionHandler {
 
