@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getTailoredResumes, ApiError, type TailoredResume } from '../../../lib/api';
-import TailoredLookupForm from './TailoredLookupForm';
 import { FileCheck, ArrowRight, AlertCircle } from 'lucide-react';
 
 const STATE_STYLES: Record<string, string> = {
@@ -121,11 +120,6 @@ export default function TailoredList() {
             ))}
           </ul>
         )}
-      </section>
-
-      {/* Manual Lookup Section */}
-      <section className="border-t border-black/10 pt-8">
-        <TailoredLookupForm />
       </section>
     </div>
   );
