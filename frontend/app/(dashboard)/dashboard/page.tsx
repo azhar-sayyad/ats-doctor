@@ -83,22 +83,6 @@ export default function DashboardHubPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/tailor"
-            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-hover transition shadow-xs"
-          >
-            <Wand2 className="h-4 w-4 text-proof" />
-            <span>Tailor a Job</span>
-          </Link>
-          <Link
-            href="/job-scan"
-            className="inline-flex items-center gap-2 rounded-xl border border-black/15 bg-white px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-surface transition"
-          >
-            <Search className="h-4 w-4 text-brand" />
-            <span>Job Scan</span>
-          </Link>
-        </div>
       </div>
 
       {/* Hero Quick Action Cards */}
