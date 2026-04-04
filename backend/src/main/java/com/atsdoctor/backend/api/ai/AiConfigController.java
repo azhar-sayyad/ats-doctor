@@ -24,11 +24,8 @@ import java.util.Map;
  * transparency payload (provider + "data leaves this machine", PRD §12.2).
  * PUT /ai/config validates profile names before applying (TASK-024).
  */
-import org.springframework.web.bind.annotation.CrossOrigin;
-
 @RestController
 @RequestMapping("/api/v1/ai")
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 public class AiConfigController {
 
     private final TaskRouter taskRouter;
@@ -105,7 +102,11 @@ public class AiConfigController {
     }
 
     private String activeProvider() {
-        return providers.isEmpty() ? "none" : providers.get(0).name();
+        return providers.stream()
+                .map(AiProvider::name)
+                .filter(name -> name.equals(activeMode()))
+                .findFirst()
+                .orElseGet(() -> providers.isEmpty() ? "none" : providers.get(0).name());
     }
 
     private boolean isExternal() {
