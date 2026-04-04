@@ -29,7 +29,7 @@
 [#th:block th:if="${skills} != null and !${skills.isEmpty()}"]
 \section*{Technical Skills}
 [#th:block th:each="skill : ${skills}"]
-[(${skill.name})][#th:block th:if="${!stat.last}"] · [/th:block]
+[(${skill.name})][#th:block th:if="${!skillStat.last}"] · [/th:block]
 [/th:block]
 [/th:block]
 
