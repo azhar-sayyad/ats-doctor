@@ -6,15 +6,12 @@ import com.atsdoctor.backend.infrastructure.persistence.TailoredChange;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredChangeRepository;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResumeRepository;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -25,7 +22,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,10 +37,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @AutoConfigureMockMvc
-class TailoringPipelineIntegrationTest {
+class TailoringPipelineIntegrationTest extends PipelineIntegrationTestBase {
 
     @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine")
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("pgvector/pgvector:pg15")
             .withDatabaseName("ats")
             .withUsername("ats")
             .withPassword("ats");
@@ -60,9 +56,6 @@ class TailoringPipelineIntegrationTest {
     }
 
     @Autowired
-    private MockMvc mvc;
-
-    @Autowired
     private TailoredResumeRepository tailoredResumeRepository;
 
     @Autowired
@@ -70,8 +63,6 @@ class TailoringPipelineIntegrationTest {
 
     @Autowired
     private AiRunRepository aiRunRepository;
-
-    private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
     void tailoring_pipeline_rewrites_selected_bullets_and_scores_the_result() throws Exception {
@@ -225,96 +216,5 @@ class TailoringPipelineIntegrationTest {
         assertThat(ready.get("state").asText()).isEqualTo("READY");
         assertThat(ready.get("error").isNull()).isTrue();
         return ready;
-    }
-
-    private JsonNode awaitTailored(String tailoredId) throws Exception {
-        return await(deadline(), () -> {
-            MvcResult result = mvc.perform(get("/api/v1/tailored/" + tailoredId))
-                    .andExpect(status().isOk())
-                    .andReturn();
-            return mapper.readTree(result.getResponse().getContentAsString());
-        });
-    }
-
-    private JsonNode awaitAnalysis(String analysisId) throws Exception {
-        return await(deadline(), () -> {
-            MvcResult result = mvc.perform(get("/api/v1/analyses/" + analysisId))
-                    .andExpect(status().isOk())
-                    .andReturn();
-            return mapper.readTree(result.getResponse().getContentAsString());
-        });
-    }
-
-    private interface Poll {
-        JsonNode poll() throws Exception;
-    }
-
-    private static JsonNode await(long deadline, Poll poll) throws Exception {
-        while (System.currentTimeMillis() < deadline) {
-            JsonNode node = poll.poll();
-            String state = node.get("state").asText();
-            if ("READY".equals(state)) {
-                return node;
-            }
-            if ("FAILED".equals(state)) {
-                throw new AssertionError("Pipeline FAILED: " + node.get("error").asText());
-            }
-            Thread.sleep(200);
-        }
-        throw new AssertionError("Pipeline did not reach READY within 20s");
-    }
-
-    private static long deadline() {
-        return System.currentTimeMillis() + 20_000;
-    }
-
-    private String uploadResumeAndAwaitReady() throws Exception {
-        String resumeText = "Jane Doe\nSenior Software Engineer\njane.doe@example.com | San Francisco, CA\n"
-                + "Senior Software Engineer with 5+ years building distributed systems.\n"
-                + "SKILLS\nLanguages: Python, FastAPI, PostgreSQL, Redis\n"
-                + "EXPERIENCE\nTech Corp — Senior Backend Engineer (2020-01 to present)\n"
-                + "- Built FastAPI services processing 2M events/day.\n"
-                + "- Led a team of 4 engineers delivering the fraud detection platform.\n"
-                + "PROJECTS\nDistributed Queue System — MSc in Computer Science capstone.\n";
-        MockMultipartFile file = new MockMultipartFile("file", "master-resume.txt",
-                "text/plain", resumeText.getBytes());
-
-        MvcResult upload = mvc.perform(multipart("/api/v1/resumes/upload").file(file))
-                .andExpect(status().isOk())
-                .andReturn();
-        String versionId = mapper.readTree(upload.getResponse().getContentAsString()).get("id").asText();
-        await(deadline(), () -> {
-            MvcResult result = mvc.perform(get("/api/v1/resumes/" + versionId))
-                    .andExpect(status().isOk())
-                    .andReturn();
-            return mapper.readTree(result.getResponse().getContentAsString());
-        });
-        return versionId;
-    }
-
-    private String createJobAndAwaitReady() throws Exception {
-        String jdText = """
-                Senior Backend Engineer (Google, Mountain View, CA)
-
-                At least 5 years of backend development experience.
-                Experience with Python and FastAPI required.
-                Strong knowledge of PostgreSQL and Redis.
-                BSc in Computer Science or related field preferred.
-
-                Responsibilities: design and implement scalable REST APIs,
-                optimize database performance, collaborate with frontend teams.
-                """;
-
-        MvcResult create = mvc.perform(post("/api/v1/jobs").param("text", jdText))
-                .andExpect(status().isOk())
-                .andReturn();
-        String jobId = mapper.readTree(create.getResponse().getContentAsString()).get("id").asText();
-        await(deadline(), () -> {
-            MvcResult result = mvc.perform(get("/api/v1/jobs/" + jobId))
-                    .andExpect(status().isOk())
-                    .andReturn();
-            return mapper.readTree(result.getResponse().getContentAsString());
-        });
-        return jobId;
     }
 }
