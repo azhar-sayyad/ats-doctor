@@ -23,11 +23,9 @@ import java.util.UUID;
  * (409 until every change is resolved and validation passed — {@link
  * ExportService#assertExportable}), 404 unknown.
  */
-import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
 @RequestMapping("/api/v1")
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 @ConditionalOnProperty(name = "ats.doctor.persistence.enabled", havingValue = "true")
 public class TailoringExportController {
 
