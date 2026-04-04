@@ -4,16 +4,13 @@ import com.atsdoctor.backend.infrastructure.persistence.TailoredChange;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredChangeRepository;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResumeRepository;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -24,7 +21,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -42,10 +38,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @AutoConfigureMockMvc
-class TailoringReviewFlowTest {
+class TailoringReviewFlowTest extends PipelineIntegrationTestBase {
 
     @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine")
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("pgvector/pgvector:pg15")
             .withDatabaseName("ats")
             .withUsername("ats")
             .withPassword("ats");
@@ -62,17 +58,12 @@ class TailoringReviewFlowTest {
     }
 
     @Autowired
-    private MockMvc mvc;
-
-    @Autowired
     private TailoredResumeRepository tailoredResumeRepository;
 
     @Autowired
     private TailoredChangeRepository tailoredChangeRepository;
 
-    private final ObjectMapper mapper = new ObjectMapper();
-
-@Test
+    @Test
     void review_regenerate_approve_and_export_round_trip() throws Exception {
         JsonNode ready = tailorReadyAnalysis();
         String tailoredId = ready.get("id").asText();
@@ -128,7 +119,7 @@ class TailoringReviewFlowTest {
         }
 
         // Revalidation after each edit persists a report in NEEDS_REVIEW state.
-        JsonNode byId = getTailored(tailoredId);
+        JsonNode byId = getJson("/api/v1/tailored/" + tailoredId);
         assertThat(byId.get("state").asText()).isEqualTo("NEEDS_REVIEW");
         String stored = tailoredResumeRepository.findById(UUID.fromString(tailoredId)).orElseThrow().getValidation();
         assertThat(mapper.readTree(stored).path("valid").asBoolean()).isTrue();
@@ -137,7 +128,7 @@ class TailoringReviewFlowTest {
         mvc.perform(post("/api/v1/tailored/" + tailoredId + "/approve"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("approved"));
-        assertThat(getTailored(tailoredId).get("state").asText()).isEqualTo("APPROVED");
+        assertThat(getJson("/api/v1/tailored/" + tailoredId).get("state").asText()).isEqualTo("APPROVED");
         mvc.perform(post("/api/v1/tailored/" + tailoredId + "/approve"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("approved"));
@@ -165,6 +156,18 @@ class TailoringReviewFlowTest {
         assertThat(docxBytes).startsWith((byte) 'P', (byte) 'K');
         assertThat(tailoredResumeRepository.findById(UUID.fromString(tailoredId)).orElseThrow().getDocxPath())
                 .contains("target/test-review-exports");
+
+        // LaTeX export: TEXT-mode template, A4 article class, .tex attachment.
+        MvcResult latex = mvc.perform(get("/api/v1/tailored/" + tailoredId + "/export/latex"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/x-tex"))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"tailored-resume-" + tailoredId + ".tex\""))
+                .andReturn();
+        String tex = latex.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(tex).contains("\\documentclass[a4paper,10pt]{article}")
+                .contains("\\begin{document}")
+                .contains("\\end{document}");
 
         // JSON export: GET /tailored shape, state APPROVED.
         mvc.perform(get("/api/v1/tailored/" + tailoredId + "/export/json"))
@@ -250,15 +253,15 @@ class TailoringReviewFlowTest {
         ObjectNode document = (ObjectNode) mapper.readTree(version.get("structured_data").asText());
         String name = document.path("basics").path("name").asText("Candidate");
         String company = document.path("experience").path(0).path("company").asText("Acme");
-        ((ObjectNode) document.get("basics")).put("name", name + " (edited)");
-        ((ObjectNode) document.get("experience").get(0)).put("company", company + " (edited)");
+        ((ObjectNode) document.get("basics")).put("name", name + " (edited) & Co #1");
+        ((ObjectNode) document.get("experience").get(0)).put("company", company + " (edited) 100% _uptime_");
 
         mvc.perform(put("/api/v1/tailored/" + tailoredId + "/edit")
                         .contentType("application/json")
                         .content(mapper.writeValueAsString(document)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("NEEDS_REVIEW"))
-                .andExpect(jsonPath("$.document.basics.name").value(name + " (edited)"));
+                .andExpect(jsonPath("$.document.basics.name").value(name + " (edited) & Co #1"));
 
         // A full-document edit resolves every non-REJECTED change to EDITED; the
         // reviewer still grounds each row so the approve/export gate passes.
@@ -289,10 +292,29 @@ class TailoringReviewFlowTest {
                 .orElseThrow().getHtml();
         assertThat(html).contains(name + " (edited)");
         assertThat(html).contains(company + " (edited)");
+
+        // LaTeX export: A4 article class and every LaTeX special in the edited
+        // document escaped (the document is authoritative, so the edits ship).
+        MvcResult latex = mvc.perform(get("/api/v1/tailored/" + tailoredId + "/export/latex"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/x-tex"))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"tailored-resume-" + tailoredId + ".tex\""))
+                .andReturn();
+        String tex = latex.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(tex).contains("\\documentclass[a4paper,10pt]{article}")
+                .contains("\\begin{document}")
+                .contains("\\end{document}")
+                .contains("Jane Doe (edited) \\& Co \\#1")
+                .contains("100\\% \\_uptime\\_");
+
+        // JSON export exposes the authoritative saved document.
+        mvc.perform(get("/api/v1/tailored/" + tailoredId + "/export/json"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.document.basics.name").value(name + " (edited) & Co #1"));
     }
 
-    // --- pipeline seeding (mirrors TailoringPipelineIntegrationTest) ---
-
+    /** Upload resume + JD, create an analysis, tailor it and await READY. */
     private JsonNode tailorReadyAnalysis() throws Exception {
         String resumeVersionId = uploadResumeAndAwaitReady();
         String jobId = createJobAndAwaitReady();
@@ -312,98 +334,5 @@ class TailoringReviewFlowTest {
         JsonNode ready = awaitTailored(tailoredId);
         assertThat(ready.get("state").asText()).isEqualTo("READY");
         return ready;
-    }
-
-    private JsonNode getTailored(String tailoredId) throws Exception {
-        MvcResult result = mvc.perform(get("/api/v1/tailored/" + tailoredId))
-                .andExpect(status().isOk())
-                .andReturn();
-        return mapper.readTree(result.getResponse().getContentAsString());
-    }
-
-    private JsonNode awaitTailored(String tailoredId) throws Exception {
-        return await(deadline(), () -> getTailored(tailoredId));
-    }
-
-    private JsonNode awaitAnalysis(String analysisId) throws Exception {
-        return await(deadline(), () -> {
-            MvcResult result = mvc.perform(get("/api/v1/analyses/" + analysisId))
-                    .andExpect(status().isOk())
-                    .andReturn();
-            return mapper.readTree(result.getResponse().getContentAsString());
-        });
-    }
-
-    private interface Poll {
-        JsonNode poll() throws Exception;
-    }
-
-    private static JsonNode await(long deadline, Poll poll) throws Exception {
-        while (System.currentTimeMillis() < deadline) {
-            JsonNode node = poll.poll();
-            String state = node.get("state").asText();
-            if ("READY".equals(state)) {
-                return node;
-            }
-            if ("FAILED".equals(state)) {
-                throw new AssertionError("Pipeline FAILED: " + node.get("error").asText());
-            }
-            Thread.sleep(200);
-        }
-        throw new AssertionError("Pipeline did not reach READY within 20s");
-    }
-
-    private static long deadline() {
-        return System.currentTimeMillis() + 20_000;
-    }
-
-    private String uploadResumeAndAwaitReady() throws Exception {
-        String resumeText = "Jane Doe\nSenior Software Engineer\njane.doe@example.com | San Francisco, CA\n"
-                + "Senior Software Engineer with 5+ years building distributed systems.\n"
-                + "SKILLS\nLanguages: Python, FastAPI, PostgreSQL, Redis\n"
-                + "EXPERIENCE\nTech Corp — Senior Backend Engineer (2020-01 to present)\n"
-                + "- Built FastAPI services processing 2M events/day.\n"
-                + "- Led a team of 4 engineers delivering the fraud detection platform.\n"
-                + "PROJECTS\nDistributed Queue System — MSc in Computer Science capstone.\n";
-        MockMultipartFile file = new MockMultipartFile("file", "master-resume.txt",
-                "text/plain", resumeText.getBytes());
-
-        MvcResult upload = mvc.perform(multipart("/api/v1/resumes/upload").file(file))
-                .andExpect(status().isOk())
-                .andReturn();
-        String versionId = mapper.readTree(upload.getResponse().getContentAsString()).get("id").asText();
-        await(deadline(), () -> {
-            MvcResult result = mvc.perform(get("/api/v1/resumes/" + versionId))
-                    .andExpect(status().isOk())
-                    .andReturn();
-            return mapper.readTree(result.getResponse().getContentAsString());
-        });
-        return versionId;
-    }
-
-    private String createJobAndAwaitReady() throws Exception {
-        String jdText = """
-                Senior Backend Engineer (Google, Mountain View, CA)
-
-                At least 5 years of backend development experience.
-                Experience with Python and FastAPI required.
-                Strong knowledge of PostgreSQL and Redis.
-                BSc in Computer Science or related field preferred.
-
-                Responsibilities: design and implement scalable REST APIs,
-                optimize database performance, collaborate with frontend teams.
-                """;
-
-        MvcResult create = mvc.perform(post("/api/v1/jobs").param("text", jdText))
-                .andExpect(status().isOk())
-                .andReturn();
-        String jobId = mapper.readTree(create.getResponse().getContentAsString()).get("id").asText();
-        await(deadline(), () -> {
-            MvcResult result = mvc.perform(get("/api/v1/jobs/" + jobId))
-                    .andExpect(status().isOk())
-                    .andReturn();
-            return mapper.readTree(result.getResponse().getContentAsString());
-        });
-        return jobId;
     }
 }
