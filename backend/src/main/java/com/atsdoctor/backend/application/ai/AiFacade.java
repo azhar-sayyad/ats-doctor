@@ -5,6 +5,8 @@ import com.atsdoctor.backend.infrastructure.ai.AiProvider;
 import com.atsdoctor.backend.infrastructure.ai.AiProviderException;
 import com.atsdoctor.backend.infrastructure.ai.ProviderRequest;
 import com.atsdoctor.backend.infrastructure.ai.ProviderResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -24,6 +26,8 @@ import java.util.Map;
  */
 @Service
 public class AiFacade implements AIService {
+
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
     private final TaskRouter taskRouter;
     private final PromptService promptService;
@@ -127,12 +131,30 @@ public class AiFacade implements AIService {
                 profile.profileName(),
                 request.task().promptVersion(),
                 sha256(request.input()),
-                response != null ? response.output() : null,
+                response != null ? jsonOrNull(response.output()) : null,
                 status,
                 error,
                 latencyMs,
                 null,
                 null);
+    }
+
+    /**
+     * ai_runs.output is a JSONB column; a provider that returns prose instead of
+     * JSON must never crash the recording step. Store {@code null} for anything
+     * that does not parse — the audit row (provider/model/status/error/latency)
+     * survives, and callers never see a DB-level error for it.
+     */
+    private static String jsonOrNull(String output) {
+        if (output == null) {
+            return null;
+        }
+        try {
+            JSON_MAPPER.readTree(output);
+            return output;
+        } catch (JsonProcessingException ex) {
+            return null;
+        }
     }
 
     private AiProvider activeProvider() {
