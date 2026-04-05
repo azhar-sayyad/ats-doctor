@@ -19,3 +19,5 @@ Rules:
 - Category B (descriptors) — use only where evidence supports.
 - Category C (new achievements/claims) — never introduce.
 - Preserve meaning; professional and concise.
+- Plain prose only: NO markdown, NO bold/**emphasis**, NO headings/###,
+  NO bullet symbols (*, -, •) — output exactly one sentence of plain text.
