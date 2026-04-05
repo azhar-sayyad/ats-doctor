@@ -4,9 +4,13 @@ Resume text:
 {{resume_text}}
 
 Rules:
-- Output ONLY valid JSON, no commentary.
+- Output ONLY valid JSON, no commentary, no markdown code fences.
 - Do not invent information not present in the text.
-- Schema: basics {name, email, phone, location, linkedin, github}, summary,
-  skills[], experience[] {company, title, start, end, bullets[]},
-  projects[] {name, description, technologies}, education[]
-  {institution, degree, field, start, end}.
+- Schema:
+  basics {name, email, phone, location, linkedin, github},
+  summary (string),
+  skills[] items are OBJECTS {"name": "Python", "category": "Language", "years": 5} — never plain strings,
+  experience[] {company, title, start (YYYY-MM or "present"), end, bullets[]} where bullets[] items are OBJECTS {"text": "..."}, never plain strings,
+  projects[] {name, description, technologies[]},
+  education[] {institution, degree, field, start, end}.
+- If a field is absent in the text, omit it or use an empty array, never null.
