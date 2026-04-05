@@ -1,9 +1,11 @@
 package com.atsdoctor.backend.api.tailor;
 
+import com.atsdoctor.backend.api.PageResult;
 import com.atsdoctor.backend.application.tailoring.ChangeReviewService;
 import com.atsdoctor.backend.application.tailoring.TailoringService;
 import com.atsdoctor.backend.application.validation.TraceabilityService;
 import com.atsdoctor.backend.application.validation.ValidationService;
+import com.atsdoctor.backend.infrastructure.persistence.TailoredResume;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
@@ -62,11 +65,16 @@ public class TailoringController {
         return TailoredResponse.of(tailoringService.tailor(analysisId)).toMap();
     }
 
+    /** Paginated list, newest first. */
     @GetMapping("/tailored")
-    public List<Map<String, Object>> list() {
-        return tailoringService.list().stream()
-                .map(t -> TailoredResponse.of(t).toMap())
-                .toList();
+    public Map<String, Object> list(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
+        org.springframework.data.domain.Page<TailoredResume> result = tailoringService.list(page, size);
+        return new PageResult<>(result.getContent().stream()
+                        .map(t -> TailoredResponse.of(t).toMap())
+                        .toList(),
+                result.getNumber(), result.getSize(), result.getTotalElements(), result.hasNext()).toMap();
     }
 
     @GetMapping("/tailored/{tailoredId}")
