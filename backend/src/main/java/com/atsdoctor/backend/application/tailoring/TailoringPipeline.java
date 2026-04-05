@@ -16,6 +16,7 @@ import com.atsdoctor.backend.infrastructure.persistence.ResumeEvidenceRepository
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResume;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResumeRepository;
 import com.atsdoctor.backend.infrastructure.scoring.ScoreCalculator;
+import com.atsdoctor.backend.infrastructure.tailoring.BulletKeys;
 import com.atsdoctor.backend.infrastructure.tailoring.BulletRewriter;
 import com.atsdoctor.backend.infrastructure.tailoring.SummaryRestructurer;
 import com.atsdoctor.backend.infrastructure.tailoring.TailorDecider;
@@ -363,7 +364,7 @@ public class TailoringPipeline {
             List<Map<String, Object>> bullets = new ArrayList<>();
             if (section.bullets() != null) {
                 for (ResumeDto.Bullet bullet : section.bullets()) {
-                    String bulletId = bullet.id() == null ? "" : bullet.id();
+                    String bulletId = BulletKeys.bulletId(sections, section, section.bullets(), bullet);
                     String tailored = tailoredBySectionId.get(bulletId);
                     if (tailored != null) {
                         Map<String, Object> b = new LinkedHashMap<>();
