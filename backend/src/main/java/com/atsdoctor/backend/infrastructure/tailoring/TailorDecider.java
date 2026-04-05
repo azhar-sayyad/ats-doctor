@@ -121,10 +121,8 @@ public class TailorDecider {
                 }
                 // Section evidence id = bullet id (EvidenceExtractor maps
                 // experience bullets to section_id = bullet id).
-                String sectionId = exp.id() == null ? "exp_" + (experience.indexOf(exp) + 1) : exp.id();
-                String bulletId = bullet.id() == null
-                        ? sectionId + "_bullet_" + (exp.bullets().indexOf(bullet) + 1)
-                        : bullet.id();
+                String sectionId = BulletKeys.sectionId(experience, exp);
+                String bulletId = BulletKeys.bulletId(experience, exp, exp.bullets(), bullet);
                 out.add(new TailoringContext.Bullet(
                         bulletId, bullet.text(), classify(bullet), bulletId));
             }
