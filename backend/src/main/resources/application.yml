@@ -24,11 +24,12 @@ spring:
       allowed-headers: "*"
   ai:
     openai:
-      base-url: ${SPRING_AI_OPENAI_BASE_URL:http://localhost:8080}
+      base-url: ${SPRING_AI_OPENAI_BASE_URL:http://localhost:20128}
+      # Local dev default; real keys live in .env / deployment config (never commit).
       api-key: ${SPRING_AI_OPENAI_API_KEY:placeholder}
       chat:
         options:
-          model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:deepseek-v4-flash}
+          model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:antigravity/gemini-3.6-flash-medium}
   mvc:
     # RFC 7807 ProblemDetail for all exceptions (07-api-contract, PRD §8).
     problemdetails:
