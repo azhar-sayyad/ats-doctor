@@ -3,7 +3,9 @@ package com.atsdoctor.backend.api.resume;
 import com.atsdoctor.backend.application.resume.ResumeValidationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotBlank;
@@ -121,7 +123,7 @@ public record ResumeDto(
         String cleaned = stripCodeFences(json);
         ResumeDto dto;
         try {
-            dto = MAPPER.readValue(cleaned, ResumeDto.class);
+            dto = MAPPER.readValue(normalizeLenientShapes(cleaned), ResumeDto.class);
         } catch (JsonProcessingException ex) {
             throw new ResumeValidationException(
                     "Structured resume is not valid JSON (" + ex.getOriginalMessage() + ")");
@@ -155,6 +157,54 @@ public record ResumeDto(
             throw new ResumeValidationException("Structured resume is empty");
         }
         return s;
+    }
+
+    /**
+     * Normalizes common provider variance before strict Bean validation: plain
+     * strings in {@code skills[]} become {@code {"name": "..."}} and plain
+     * strings in {@code experience[].bullets[]} become {@code {"text": "..."}}.
+     * Real models occasionally flatten these arrays despite the prompt contract.
+     */
+    static String normalizeLenientShapes(String json) {
+        JsonNode root;
+        try {
+            root = MAPPER.readTree(json);
+        } catch (JsonProcessingException ex) {
+            return json;
+        }
+        boolean changed = false;
+        if (root.has("skills") && root.get("skills").isArray()) {
+            ArrayNode skills = (ArrayNode) root.get("skills");
+            for (int i = 0; i < skills.size(); i++) {
+                JsonNode item = skills.get(i);
+                if (item.isTextual()) {
+                    skills.set(i, MAPPER.createObjectNode().put("name", item.asText()));
+                    changed = true;
+                }
+            }
+        }
+        if (root.has("experience") && root.get("experience").isArray()) {
+            for (JsonNode exp : root.get("experience")) {
+                if (exp.has("bullets") && exp.get("bullets").isArray()) {
+                    ArrayNode bullets = (ArrayNode) exp.get("bullets");
+                    for (int i = 0; i < bullets.size(); i++) {
+                        JsonNode bullet = bullets.get(i);
+                        if (bullet.isTextual()) {
+                            bullets.set(i, MAPPER.createObjectNode().put("text", bullet.asText()));
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+        if (!changed) {
+            return json;
+        }
+        try {
+            return MAPPER.writeValueAsString(root);
+        } catch (JsonProcessingException ex) {
+            return json;
+        }
     }
 
     /**
