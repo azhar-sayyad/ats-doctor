@@ -1,5 +1,6 @@
 package com.atsdoctor.backend.api.analyses;
 
+import com.atsdoctor.backend.api.PageResult;
 import com.atsdoctor.backend.application.analysis.AnalysisService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
@@ -9,9 +10,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,11 +40,17 @@ public class AnalysisController {
                 analysisService.queue(request.jobId(), request.resumeVersionId())).toMap();
     }
 
+    /** Paginated list, newest first (07-api-contract §4, FEAT-027). */
     @GetMapping
-    public List<Map<String, Object>> list() {
-        return analysisService.list().stream()
-                .map(a -> AnalysisResponse.of(a).toMap())
-                .toList();
+    public Map<String, Object> list(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
+        org.springframework.data.domain.Page<com.atsdoctor.backend.infrastructure.persistence.Analysis> result =
+                analysisService.list(page, size);
+        return new PageResult<>(result.getContent().stream()
+                        .map(a -> AnalysisResponse.of(a).toMap())
+                        .toList(),
+                result.getNumber(), result.getSize(), result.getTotalElements(), result.hasNext()).toMap();
     }
 
     @GetMapping("/{analysisId}")
