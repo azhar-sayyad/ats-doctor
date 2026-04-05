@@ -1,5 +1,6 @@
 package com.atsdoctor.backend.api.jobs;
 
+import com.atsdoctor.backend.api.PageResult;
 import com.atsdoctor.backend.application.job.JobService;
 import com.atsdoctor.backend.infrastructure.parsing.TextExtractionService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -15,7 +16,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -70,9 +70,14 @@ public class JobController {
         return jobService.createFromText(text).toMap();
     }
 
+    /** Paginated list, newest first (07-api-contract §2, FEAT-021). */
     @GetMapping
-    public List<Map<String, Object>> list() {
-        return jobService.list().stream().map(JobResponse::toMap).toList();
+    public Map<String, Object> list(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
+        org.springframework.data.domain.Page<JobResponse> result = jobService.list(page, size);
+        return new PageResult<>(result.getContent().stream().map(JobResponse::toMap).toList(),
+                result.getNumber(), result.getSize(), result.getTotalElements(), result.hasNext()).toMap();
     }
 
     @GetMapping("/{jobId}")
