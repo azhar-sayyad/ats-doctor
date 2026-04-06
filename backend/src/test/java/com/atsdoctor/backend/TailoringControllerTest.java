@@ -153,6 +153,21 @@ class TailoringControllerTest {
                 .andExpect(jsonPath("$.status").value("approved"));
     }
 
+    @Test
+    void list_returns_paginated_envelope() throws Exception {
+        when(tailoringService.list(0, 10))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(
+                        java.util.List.of(tailored("READY", 68, 74)),
+                        org.springframework.data.domain.PageRequest.of(0, 10), 1));
+
+        mvc.perform(get("/api/v1/tailored"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].state").value("READY"))
+                .andExpect(jsonPath("$.items[0].score_before").value(68))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.has_more").value(false));
+    }
+
     private static TailoredResume tailored(String state, Integer scoreBefore, Integer scoreAfter) {
         TailoredResume tailored = new TailoredResume();
         com.atsdoctor.backend.infrastructure.persistence.Analysis analysis =
