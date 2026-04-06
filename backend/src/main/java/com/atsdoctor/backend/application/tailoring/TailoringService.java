@@ -1,5 +1,6 @@
 package com.atsdoctor.backend.application.tailoring;
 
+import com.atsdoctor.backend.api.PageResult;
 import com.atsdoctor.backend.domain.states.StateMachines;
 import com.atsdoctor.backend.domain.states.TailoringState;
 import com.atsdoctor.backend.infrastructure.persistence.Analysis;
@@ -10,6 +11,9 @@ import com.atsdoctor.backend.infrastructure.persistence.TailoredResume;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResumeRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -133,15 +137,12 @@ public class TailoringService {
         return require(tailoredResumeId);
     }
 
-    /**
-     * Read-only change listing (TASK-073 support; the review lifecycle POST
-     * actions ship with FEAT-037/TASK-074 in SPRINT-06). 404 when the tailored
-     * resume is unknown.
-     */
+    /** Paginated list, newest first; page/size are clamped in {@link PageResult}. */
     @Transactional(readOnly = true)
-    public List<TailoredResume> list() {
-        return tailoredResumeRepository.findAll(org.springframework.data.domain.Sort.by(
-                org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+    public Page<TailoredResume> list(int page, int size) {
+        return tailoredResumeRepository.findAll(PageRequest.of(
+                        PageResult.clampPage(page), PageResult.clampSize(size),
+                        Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
     @Transactional(readOnly = true)
