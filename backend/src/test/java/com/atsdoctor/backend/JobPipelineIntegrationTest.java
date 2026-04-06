@@ -112,7 +112,8 @@ class JobPipelineIntegrationTest {
 
         mvc.perform(get("/api/v1/jobs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(jobId));
+                .andExpect(jsonPath("$.items[0].id").value(jobId))
+                .andExpect(jsonPath("$.items").isArray());
 
         mvc.perform(delete("/api/v1/jobs/" + jobId))
                 .andExpect(status().isOk())
