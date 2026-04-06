@@ -1,5 +1,6 @@
 package com.atsdoctor.backend.application.job;
 
+import com.atsdoctor.backend.api.PageResult;
 import com.atsdoctor.backend.api.jobs.JobDto;
 import com.atsdoctor.backend.api.jobs.JobResponse;
 import com.atsdoctor.backend.domain.states.JobState;
@@ -14,6 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -144,11 +148,13 @@ public class JobService {
         return new JobLookup(job.getRawText(), job.getSourceFilename());
     }
 
+    /** Paginated list, newest first; page/size are clamped in {@link PageResult}. */
     @Transactional(readOnly = true)
-    public List<JobResponse> list() {
-        return jobRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(this::toResponse)
-                .toList();
+    public Page<JobResponse> list(int page, int size) {
+        return jobRepository.findAll(PageRequest.of(
+                        PageResult.clampPage(page), PageResult.clampSize(size),
+                        Sort.by(Sort.Direction.DESC, "createdAt")))
+                .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
