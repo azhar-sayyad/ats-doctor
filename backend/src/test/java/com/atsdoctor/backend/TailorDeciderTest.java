@@ -95,6 +95,25 @@ class TailorDeciderTest {
                 .containsExactlyInAnyOrder("A", "B");
     }
 
+    @Test
+    void id_less_bullets_get_stable_synthetic_keys() {
+        TailoringContext context = context(
+                bullet(null, "Built FastAPI services processing 2M events/day.", "A"),
+                bullet(null, "Led a team of 4 engineers delivering the fraud detection platform.", "B"),
+                bullet(null, "Designed automated reporting with cron workflows.", "B"),
+                bullet(null, "Built Kafka pipelines for real-time streaming.", "B"),
+                gap("Kubernetes experience", List.of("Kubernetes")),
+                gap("gRPC experience", List.of("gRPC")));
+
+        TailorDecider.Decision decision = decider.decide(context);
+
+        assertThat(decision.bulletSelections())
+                .extracting(TailorDecider.BulletSelection::bulletId)
+                .containsExactly("exp_001_bullet_1", "exp_001_bullet_2", "exp_001_bullet_3");
+        assertThat(decision.bulletSelections())
+                .allSatisfy(s -> assertThat(s.evidenceId()).isEqualTo(s.bulletId()));
+    }
+
     // ------------------------------------------------------------------
 
     private static TailoringContext context(TailoringContext.Bullet bullet,
