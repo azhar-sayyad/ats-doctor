@@ -77,12 +77,16 @@ class AnalysisControllerTest {
 
     @Test
     void list_returns_analyses() throws Exception {
-        when(analysisService.list()).thenReturn(List.of(analysis("READY", 69)));
+        when(analysisService.list(0, 10))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(analysis("READY", 69)),
+                        org.springframework.data.domain.PageRequest.of(0, 10), 1));
 
         mvc.perform(get("/api/v1/analyses"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].state").value("READY"))
-                .andExpect(jsonPath("$[0].score").value(69));
+                .andExpect(jsonPath("$.items[0].state").value("READY"))
+                .andExpect(jsonPath("$.items[0].score").value(69))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.has_more").value(false));
     }
 
     @Test
