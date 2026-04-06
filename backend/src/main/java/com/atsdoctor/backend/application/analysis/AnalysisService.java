@@ -1,5 +1,6 @@
 package com.atsdoctor.backend.application.analysis;
 
+import com.atsdoctor.backend.api.PageResult;
 import com.atsdoctor.backend.api.jobs.JobDto;
 import com.atsdoctor.backend.api.resume.ResumeDto;
 import com.atsdoctor.backend.domain.states.AnalysisState;
@@ -20,6 +21,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -147,9 +151,12 @@ public class AnalysisService {
         return analysis;
     }
 
+    /** Paginated list, newest first; page/size are clamped in {@link PageResult}. */
     @Transactional(readOnly = true)
-    public List<Analysis> list() {
-        return analysisRepository.findAllByOrderByCreatedAtDesc();
+    public Page<Analysis> list(int page, int size) {
+        return analysisRepository.findAll(PageRequest.of(
+                        PageResult.clampPage(page), PageResult.clampSize(size),
+                        Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
     @Transactional(readOnly = true)
