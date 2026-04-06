@@ -237,12 +237,17 @@ class AnalysisServiceTest {
     }
 
     @Test
-    void list_returns_newest_first() {
+    void list_returns_newest_first_page() {
         Analysis a1 = analysis(AnalysisState.READY);
-        when(analysisRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(a1));
+        when(analysisRepository.findAll(any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(a1)));
 
-        assertThat(service.list()).containsExactly(a1);
-        verify(analysisRepository).findAllByOrderByCreatedAtDesc();
+        assertThat(service.list(0, 10).getContent()).containsExactly(a1);
+        assertThat(service.list(0, 10).getTotalElements()).isEqualTo(1);
+        org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> captor =
+                org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        verify(analysisRepository, org.mockito.Mockito.atLeastOnce()).findAll(captor.capture());
+        assertThat(captor.getValue().getSort().isSorted()).isTrue();
     }
 
     private Job readyJob() {
