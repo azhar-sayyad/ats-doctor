@@ -66,6 +66,27 @@ class ResumeDtoTest {
     }
 
     @Test
+    void accepts_string_skills_and_string_bullets_from_real_models() {
+        String json = """
+                {
+                  "basics": { "name": "Jane Doe" },
+                  "skills": [ "Python (5 years)", "FastAPI" ],
+                  "experience": [
+                    { "company": "Tech Corp", "title": "Engineer",
+                      "bullets": [ "Built services.", "Led a team." ] }
+                  ]
+                }
+                """;
+
+        ResumeDto dto = ResumeDto.parse(json, validator);
+
+        assertThat(dto.skills()).extracting(ResumeDto.Skill::name)
+                .containsExactly("Python (5 years)", "FastAPI");
+        assertThat(dto.experience().get(0).bullets()).extracting(ResumeDto.Bullet::text)
+                .containsExactly("Built services.", "Led a team.");
+    }
+
+    @Test
     void ignores_unknown_provider_fields() {
         String json = """
                 { "_stub": true, "task": "resume_parser",
