@@ -194,6 +194,28 @@ class AiLayerTest {
                 .hasMessageContaining("resume_parser");
     }
 
+    @Test
+    void facade_records_null_output_when_provider_returns_prose() {
+        FakeProvider provider = new FakeProvider("fake").respond("Here is the result: ok-resume_parser");
+        AiResult result = facade(true, provider).generate(
+                AiRequest.of(AiTask.RESUME_PARSER, "x"));
+
+        assertThat(result.output()).isEqualTo("Here is the result: ok-resume_parser");
+        assertThat(recorder.records()).hasSize(1);
+        assertThat(recorder.records().get(0).status()).isEqualTo("success");
+        assertThat(recorder.records().get(0).output()).isNull();
+    }
+
+    @Test
+    void facade_records_output_verbatim_when_provider_returns_valid_json() {
+        FakeProvider provider = new FakeProvider("fake").respond("{\"task\": \"resume_parser\", \"ok\": true}");
+        facade(true, provider).generate(AiRequest.of(AiTask.RESUME_PARSER, "x"));
+
+        assertThat(recorder.records()).hasSize(1);
+        assertThat(recorder.records().get(0).output())
+                .isEqualTo("{\"task\": \"resume_parser\", \"ok\": true}");
+    }
+
     // ── helpers ────────────────────────────────────────────────────────────
 
     private AiFacade facade(boolean degrade, AiProvider... providers) {
@@ -226,6 +248,11 @@ class AiLayerTest {
 
         FakeProvider fail(String message) {
             failures.add(new AiProviderException(message));
+            return this;
+        }
+
+        FakeProvider respond(String output) {
+            responses.add(new ProviderResponse(output, name, "m"));
             return this;
         }
 
