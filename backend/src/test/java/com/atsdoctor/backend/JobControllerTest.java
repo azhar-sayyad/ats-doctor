@@ -110,11 +110,34 @@ class JobControllerTest {
 
     @Test
     void list_returns_all_jobs() throws Exception {
-        when(jobService.list()).thenReturn(List.of(response("READY", "Senior Backend Engineer")));
+        JobResponse job = response("READY", "Senior Backend Engineer");
+        when(jobService.list(0, 10))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(job),
+                        org.springframework.data.domain.PageRequest.of(0, 10), 1));
 
         mvc.perform(get("/api/v1/jobs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].state").value("READY"));
+                .andExpect(jsonPath("$.items[0].state").value("READY"))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.has_more").value(false));
+    }
+
+    @Test
+    void list_forwards_pagination_params_and_has_more() throws Exception {
+        JobResponse job = response("READY", "A");
+        when(jobService.list(1, 2))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(job),
+                        org.springframework.data.domain.PageRequest.of(1, 2), 5));
+
+        mvc.perform(get("/api/v1/jobs").param("page", "1").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(job.id().toString()))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.total").value(5))
+                .andExpect(jsonPath("$.has_more").value(true));
     }
 
     @Test
