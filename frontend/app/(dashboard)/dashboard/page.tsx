@@ -4,12 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   getCurrentResume,
-  getJobs,
   getAnalyses,
   getTailoredResumes,
   deleteJob,
   type ResumeVersion,
-  type Job,
   type Analysis,
   type TailoredResume,
   API_BASE_URL,
@@ -35,29 +33,29 @@ import {
 
 export default function DashboardHubPage() {
   const [resume, setResume] = useState<ResumeVersion | null>(null);
-  const [jobs, setJobs] = useState<Job[] | null>(null);
   const [analyses, setAnalyses] = useState<Analysis[] | null>(null);
   const [tailored, setTailored] = useState<TailoredResume[] | null>(null);
+  const [tailoredTotal, setTailoredTotal] = useState(0);
 
   useEffect(() => {
     getCurrentResume()
       .then(setResume)
       .catch(() => setResume(null));
 
-    getJobs()
-      .then(setJobs)
-      .catch(() => setJobs(null));
-
-    getAnalyses()
-      .then(setAnalyses)
+    // Score stat averages over all runs; recent table needs only the latest 6.
+    getAnalyses({ size: 1000 })
+      .then((res) => setAnalyses(res.items))
       .catch(() => setAnalyses(null));
 
-    getTailoredResumes()
-      .then(setTailored)
+    getTailoredResumes({ size: 6 })
+      .then((res) => {
+        setTailored(res.items);
+        setTailoredTotal(res.total);
+      })
       .catch(() => setTailored(null));
   }, []);
 
-  const totalTailored = tailored ? tailored.length : 0;
+  const totalTailored = tailoredTotal;
   const avgScore =
     analyses && analyses.length > 0
       ? Math.round(
@@ -161,9 +159,18 @@ export default function DashboardHubPage() {
             <h2 className="text-lg font-bold text-foreground">Recent Applications & Tailored Resumes</h2>
             <p className="text-xs text-muted">Browse past application runs, score improvements, and export artifacts.</p>
           </div>
-          <span className="font-mono text-xs font-semibold rounded-full border border-black/10 bg-surface px-3 py-1 text-muted">
-            {tailored === null ? '…' : tailored.length} applications
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs font-semibold rounded-full border border-black/10 bg-surface px-3 py-1 text-muted">
+              {tailored === null ? '…' : tailoredTotal} applications
+            </span>
+            <Link
+              href="/tailored"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-surface"
+            >
+              View all
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
 
         {tailored === null ? (
