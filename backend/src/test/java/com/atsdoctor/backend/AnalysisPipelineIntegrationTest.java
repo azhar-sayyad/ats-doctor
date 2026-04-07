@@ -105,7 +105,8 @@ class AnalysisPipelineIntegrationTest extends PipelineIntegrationTestBase {
 
         mvc.perform(get("/api/v1/analyses"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(analysisId));
+                .andExpect(jsonPath("$.items[0].id").value(analysisId))
+                .andExpect(jsonPath("$.items").isArray());
 
         mvc.perform(get("/api/v1/analyses/" + UUID.randomUUID()))
                 .andExpect(status().isNotFound())
