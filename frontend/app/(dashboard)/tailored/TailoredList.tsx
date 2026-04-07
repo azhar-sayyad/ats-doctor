@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getTailoredResumes, ApiError, type TailoredResume } from '../../../lib/api';
+import Pagination from '../../../components/Pagination';
 import { FileCheck, ArrowRight, AlertCircle } from 'lucide-react';
+
+const PAGE_SIZE = 10;
 
 const STATE_STYLES: Record<string, string> = {
   READY: 'bg-proof text-proof-ink font-mono font-bold',
@@ -16,15 +19,25 @@ const STATE_STYLES: Record<string, string> = {
 
 export default function TailoredList() {
   const [resumes, setResumes] = useState<TailoredResume[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getTailoredResumes()
-      .then(setResumes)
-      .catch((err) => {
-        setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
-      });
+  const loadResumes = useCallback(async (targetPage: number) => {
+    try {
+      const result = await getTailoredResumes({ page: targetPage, size: PAGE_SIZE });
+      setResumes(result.items);
+      setTotal(result.total);
+      setPage(result.page);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
+    }
   }, []);
+
+  useEffect(() => {
+    void loadResumes(0);
+  }, [loadResumes]);
 
   return (
     <div className="mt-8 space-y-10">
@@ -40,7 +53,7 @@ export default function TailoredList() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold tracking-tight text-foreground">Generated Tailored Resumes</h2>
           <span className="font-mono text-xs font-semibold rounded-full border border-black/10 bg-surface px-3 py-1 text-muted shadow-2xs">
-            {resumes === null ? '…' : resumes.length} tailored runs
+            {resumes === null ? '…' : total} tailored runs
           </span>
         </div>
 
@@ -119,6 +132,9 @@ export default function TailoredList() {
               </li>
             ))}
           </ul>
+        )}
+        {resumes !== null && resumes.length > 0 && (
+          <Pagination page={page} size={PAGE_SIZE} total={total} onChange={(p) => loadResumes(p)} />
         )}
       </section>
     </div>
