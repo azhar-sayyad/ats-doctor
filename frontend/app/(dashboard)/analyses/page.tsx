@@ -16,11 +16,15 @@ import {
   type ResumeVersion,
 } from '../../../lib/api';
 import { AnalysisBadge, ScoreBadge } from '../../../components/ui';
+import Pagination from '../../../components/Pagination';
 // import StepGuide from '../../../components/StepGuide';
 import AnalysisDetail from '../../../components/analyses/AnalysisDetail';
 import { Target, Sparkles, RefreshCw, Eye, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const PROCESSING = new Set(['QUEUED', 'MATCHING', 'SCORING']);
+const PAGE_SIZE = 10;
+/** The run-card job dropdown + history title mapping need the full jobs list. */
+const ALL_JOBS_SIZE = 1000;
 
 export default function AnalysesPage() {
   const router = useRouter();
@@ -28,6 +32,8 @@ export default function AnalysesPage() {
   const [resume, setResume] = useState<ResumeVersion | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [analyses, setAnalyses] = useState<Analysis[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [selectedJobId, setSelectedJobId] = useState('');
   const [selectedResumeId, setSelectedResumeId] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -72,15 +78,27 @@ export default function AnalysesPage() {
     [applyAnalysis, stopPolling],
   );
 
-  const loadAll = useCallback(async () => {
+  const loadAnalyses = useCallback(async (targetPage: number) => {
     try {
-      const [jobList, analysisList] = await Promise.all([getJobs(), getAnalyses()]);
-      setJobs(jobList);
-      setAnalyses(analysisList);
+      const result = await getAnalyses({ page: targetPage, size: PAGE_SIZE });
+      setAnalyses(result.items);
+      setTotal(result.total);
+      setPage(result.page);
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
     }
+  }, []);
+
+  const loadAll = useCallback(async () => {
+    try {
+      const jobList = await getJobs({ size: ALL_JOBS_SIZE });
+      setJobs(jobList.items);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
+    }
+    void loadAnalyses(0);
     try {
       const r = await getCurrentResume();
       setResume(r);
@@ -93,7 +111,7 @@ export default function AnalysesPage() {
         setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
       }
     }
-  }, []);
+  }, [loadAnalyses]);
 
   useEffect(() => {
     void loadAll();
@@ -117,6 +135,8 @@ export default function AnalysesPage() {
     setRunning(true);
     try {
       const a = await createAnalysis(selectedJobId, selectedResumeId);
+      setPage(0);
+      setTotal((t) => t + 1);
       setAnalyses((prev) => (prev ? [a, ...prev] : [a]));
       startWatching(a.id);
     } catch (err) {
@@ -189,7 +209,7 @@ export default function AnalysesPage() {
           </p>
         </div>
         <span className="self-start sm:self-center font-mono text-xs font-semibold rounded-full border border-black/10 bg-surface px-3 py-1 text-muted shadow-2xs">
-          {analyses === null ? '…' : analyses.length} match runs
+          {analyses === null ? '…' : total} match runs
         </span>
       </div>
 
@@ -341,6 +361,9 @@ export default function AnalysesPage() {
               );
             })}
           </ul>
+        )}
+        {analyses !== null && analyses.length > 0 && (
+          <Pagination page={page} size={PAGE_SIZE} total={total} onChange={(p) => loadAnalyses(p)} />
         )}
       </section>
     </div>
