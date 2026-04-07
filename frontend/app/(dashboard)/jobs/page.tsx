@@ -4,16 +4,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, createJobFromFile, createJobFromText, deleteJob, getJob, getJobs, type Job } from '../../../lib/api';
 import { Badge } from '../../../components/ui';
+import Pagination from '../../../components/Pagination';
 // import StepGuide from '../../../components/StepGuide';
 import JobDrawer from '../../../components/jobs/JobDrawer';
 import { Briefcase, FileText, Plus, Trash2, ArrowRight, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 const PROCESSING = new Set(['CREATED', 'EXTRACTING', 'PARSING']);
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.txt'];
+const PAGE_SIZE = 10;
 
 export default function JobsPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [listError, setListError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<'paste' | 'file'>('paste');
@@ -38,9 +42,12 @@ export default function JobsPage() {
 
   useEffect(() => stopPolling, [stopPolling]);
 
-  const loadJobs = useCallback(async () => {
+  const loadJobs = useCallback(async (targetPage: number) => {
     try {
-      setJobs(await getJobs());
+      const result = await getJobs({ page: targetPage, size: PAGE_SIZE });
+      setJobs(result.items);
+      setTotal(result.total);
+      setPage(result.page);
       setListError(null);
     } catch (err) {
       setListError(err instanceof ApiError ? err.detail ?? err.message : String(err));
@@ -48,7 +55,7 @@ export default function JobsPage() {
   }, []);
 
   useEffect(() => {
-    void loadJobs();
+    void loadJobs(0);
   }, [loadJobs]);
 
   const watchAfterCreate = useCallback(
@@ -61,7 +68,7 @@ export default function JobsPage() {
             if (job.state === 'READY' || job.state === 'FAILED') {
               stopPolling();
               setPendingId(null);
-              void loadJobs();
+              void loadJobs(0);
             }
           })
           .catch(() => {
@@ -132,8 +139,12 @@ export default function JobsPage() {
     if (!window.confirm(`Delete "${job.title ?? job.source_filename ?? job.id}"?`)) return;
     try {
       await deleteJob(job.id);
-      setJobs((prev) => (prev ? prev.filter((j) => j.id !== job.id) : prev));
       if (drawerJobId === job.id) setDrawerJobId(null);
+      if (jobs && jobs.length === 1 && page > 0) {
+        void loadJobs(page - 1);
+      } else {
+        void loadJobs(page);
+      }
     } catch (err) {
       setFormError(err instanceof ApiError ? err.detail ?? err.message : String(err));
     }
@@ -170,7 +181,7 @@ export default function JobsPage() {
           </p>
         </div>
         <span className="self-start sm:self-center font-mono text-xs font-semibold rounded-full border border-black/10 bg-surface px-3 py-1 text-muted shadow-2xs">
-          {jobs === null ? '…' : jobs.length} saved roles
+          {jobs === null ? '…' : total} saved roles
         </span>
       </div>
 
@@ -359,6 +370,9 @@ export default function JobsPage() {
               </li>
             ))}
           </ul>
+        )}
+        {jobs !== null && jobs.length > 0 && (
+          <Pagination page={page} size={PAGE_SIZE} total={total} onChange={(p) => loadJobs(p)} />
         )}
       </section>
 
