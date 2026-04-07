@@ -44,16 +44,16 @@ export default function Sidebar() {
       .then(setResume)
       .catch(() => setResume(null));
 
-    getJobs()
-      .then(setJobs)
+    getJobs({ size: 1000 })
+      .then((r) => setJobs(r.items))
       .catch(() => setJobs(null));
 
-    getAnalyses()
-      .then(setAnalyses)
+    getAnalyses({ size: 1000 })
+      .then((r) => setAnalyses(r.items))
       .catch(() => setAnalyses(null));
 
-    getTailoredResumes()
-      .then(setTailored)
+    getTailoredResumes({ size: 1000 })
+      .then((r) => setTailored(r.items))
       .catch(() => setTailored(null));
   }, [pathname]);
 
