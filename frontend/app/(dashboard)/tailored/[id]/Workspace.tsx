@@ -187,6 +187,8 @@ export default function Workspace({
   function handleExport(format: 'pdf' | 'docx' | 'json') {
     if (pending > 0) {
       setError(`Export blocked: ${pending} change(s) still pending review. Please accept, reject, or edit all changes first.`);
+      setView('review');
+      setReviewTab('changes');
       void checkValidation();
       return;
     }
@@ -307,6 +309,7 @@ export default function Workspace({
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
             <DocumentViewer
               doc={doc}
+              changes={changes}
               busy={busy}
               tab={reviewTab}
               onTabChange={setReviewTab}
