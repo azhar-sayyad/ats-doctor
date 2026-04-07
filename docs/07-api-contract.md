@@ -27,6 +27,16 @@ follow **Spring `ProblemDetail` (RFC 7807)** — `application/problem+json` with
 `status`/`title`/`detail` (PRD §8). Statuses reference the state machines in
 `08-database-schema.md` and PRD §5.8.
 
+**List pagination**: the list endpoints (`GET /jobs`, `GET /analyses`,
+`GET /tailored`) accept optional `page` (0-based, default `0`) and `size`
+(default `10`, clamped to `[1, 1000]`) query params and return a page
+envelope instead of a bare array:
+
+```json
+{"items": [ ...newest first, at most `size` rows... ],
+ "page": 0, "size": 10, "total": 27, "has_more": true}
+```
+
 > Status truth lives in `05-backlog.md`. Feature mappings below reference
 > `03-features.md`; tasks reference `06-technical-tasks.md`.
 
@@ -50,7 +60,7 @@ files; path-traversal-safe storage under `data/resumes/`.
 | Endpoint | Method | Purpose | Request | Response | Status | Feature |
 |----------|--------|---------|---------|----------|--------|---------|
 | `/jobs` | POST | Upload JD file or paste text. | multipart `file: UploadFile` **or** `text: str` | `job` JSON | `CREATED` → `EXTRACTING` → `PARSING` → `READY`/`FAILED` | FEAT-017 (TASK-039) |
-| `/jobs` | GET | List all jobs. | — | `[job]` JSON | — | FEAT-021 |
+| `/jobs` | GET | List jobs (paginated, newest first). | query `page: int` (default 0), `size: int` (default 10) | page envelope `{"items": [job], "page", "size", "total", "has_more"}` | — | FEAT-021 |
 | `/jobs/{job_id}` | GET | Get specific job. | path `job_id: UUID` | `job` JSON | 404 if not found | FEAT-021 |
 | `/jobs/{job_id}` | DELETE | Delete job. | path `job_id: UUID` | `{"status": "deleted"}` | 404 if not found | FEAT-021 |
 
@@ -59,7 +69,7 @@ files; path-traversal-safe storage under `data/resumes/`.
 | Endpoint | Method | Purpose | Request | Response | Status | Feature |
 |----------|--------|---------|---------|----------|--------|---------|
 | `/analyses` | POST | Analyze job against resume (queues pipeline). | body `job_id: UUID`, `resume_version_id: UUID` | `analysis` JSON (state `QUEUED`) | `QUEUED` → `MATCHING` → `SCORING` → `READY`/`FAILED`; 400 if job/resume missing or not READY | FEAT-027 (TASK-056) |
-| `/analyses` | GET | List all analyses (newest first). | — | `[analysis]` JSON | — | FEAT-027 (TASK-058) |
+| `/analyses` | GET | List analyses (paginated, newest first). | query `page: int` (default 0), `size: int` (default 10) | page envelope `{"items": [analysis], "page", "size", "total", "has_more"}` | — | FEAT-027 (TASK-058) |
 | `/analyses/{analysis_id}` | GET | Get analysis results (incl. status). | path `analysis_id: UUID` | `analysis` JSON | includes `score`, `score_breakdown` (6 categories + `total`), `matches`, `gaps`, `generation`; 404 if not found | FEAT-027 (TASK-058) |
 | `/analyses/{analysis_id}/reanalyze` | POST | Re-run analysis. | path `analysis_id: UUID` | `analysis` JSON (state `QUEUED`) | `READY`/`FAILED` → `QUEUED`; 409 while running; 404 if not found | FEAT-027 (TASK-058) |
 | `/analyses/{analysis_id}/tailor` | POST | Generate tailored resume from analysis. | path `analysis_id: UUID` | `tailored_resume` JSON | Tailoring `QUEUED` → `GENERATING` → `VALIDATING` → `READY`; 400/404/409 ProblemDetail; failures surface via `error` | FEAT-032 (TASK-066) |
@@ -68,6 +78,7 @@ files; path-traversal-safe storage under `data/resumes/`.
 
 | Endpoint | Method | Purpose | Request | Response | Status | Feature |
 |----------|--------|---------|---------|----------|--------|---------|
+| `/tailored` | GET | List tailored resumes (paginated, newest first). | query `page: int` (default 0), `size: int` (default 10) | page envelope `{"items": [tailored_resume], "page", "size", "total", "has_more"}` | — | FEAT-032 (TASK-066) |
 | `/tailored/{tailored_id}` | GET | Get tailored resume. | path `tailored_id: UUID` | `tailored_resume` JSON | includes `content` (summary/experience/order/generation), `score_before`, `score_after`, `state`, `error`; 404 if not found | FEAT-032 (TASK-066) |
 | `/tailored/{tailored_id}/changes` | GET | List per-change review state. | path `tailored_id: UUID` | `[tailored_change]` JSON | — | FEAT-037 (TASK-074) |
 | `/tailored/{tailored_id}/changes/{change_id}` | POST | Accept/reject/edit/regenerate a change. | path ids; body `{"action": "accept" \| "reject" \| "edit" \| "regenerate", "new_text": "…"}` (edit requires non-blank `new_text`) | `tailored_change` JSON | change → `ACCEPTED`/`REJECTED`/`EDITED`/`REGENERATED`; 400 unknown action; 404 unknown ids; 409 when not reviewable | FEAT-037 (TASK-075) |
