@@ -186,12 +186,35 @@ export interface AiConfig {
   note: string;
 }
 
+/** Page envelope returned by the paginated list endpoints (page is 0-based). */
+export interface Paginated<T> {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+  has_more: boolean;
+}
+
+/** Optional list pagination params (07-api-contract: page/size). */
+export interface ListParams {
+  page?: number;
+  size?: number;
+}
+
+function queryString(params?: ListParams): string {
+  if (!params) return '';
+  const parts: string[] = [];
+  if (params.page !== undefined) parts.push(`page=${params.page}`);
+  if (params.size !== undefined) parts.push(`size=${params.size}`);
+  return parts.length === 0 ? '' : `?${parts.join('&')}`;
+}
+
 // ---------------------------------------------------------------------------
 // Typed helpers
 // ---------------------------------------------------------------------------
 
 // Jobs
-export const getJobs = () => apiGet<Job[]>('/jobs');
+export const getJobs = (params?: ListParams) => apiGet<Paginated<Job>>(`/jobs${queryString(params)}`);
 export const getJob = (id: string) => apiGet<Job>(`/jobs/${id}`);
 export const createJobFromText = (text: string) => {
   const form = new FormData();
@@ -202,7 +225,7 @@ export const createJobFromFile = (file: File) => apiUpload<Job>('/jobs', file);
 export const deleteJob = (id: string) => apiDelete<{ status: string }>(`/jobs/${id}`);
 
 // Analyses
-export const getAnalyses = () => apiGet<Analysis[]>('/analyses');
+export const getAnalyses = (params?: ListParams) => apiGet<Paginated<Analysis>>(`/analyses${queryString(params)}`);
 export const getAnalysis = (id: string) => apiGet<Analysis>(`/analyses/${id}`);
 export const createAnalysis = (jobId: string, resumeVersionId: string) =>
   apiPost<Analysis>('/analyses', { job_id: jobId, resume_version_id: resumeVersionId });
@@ -254,7 +277,8 @@ export async function waitForAnalysisReady(analysisId: string): Promise<Analysis
 }
 
 // Tailoring
-export const getTailoredResumes = () => apiGet<TailoredResume[]>('/tailored');
+export const getTailoredResumes = (params?: ListParams) =>
+  apiGet<Paginated<TailoredResume>>(`/tailored${queryString(params)}`);
 export const tailorAnalysis = (analysisId: string) =>
   apiPost<TailoredResume>(`/analyses/${analysisId}/tailor`);
 export const getTailoredResume = (id: string) => apiGet<TailoredResume>(`/tailored/${id}`);
