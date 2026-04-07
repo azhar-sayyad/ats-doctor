@@ -54,7 +54,12 @@ export interface DocSection {
 
 export interface DocModel {
   basics: ResumeBasics;
-  summary: { original: string; effective: string; rewritten: boolean } | null;
+  summary: {
+    original: string;
+    effective: string;
+    rewritten: boolean;
+    change: TailoredChange | null;
+  } | null;
   skills: ResumeSkill[];
   sections: DocSection[];
   projects: ResumeProject[];
@@ -128,13 +133,18 @@ export function buildDocumentModel(
       ? (() => {
           const change = changesByOriginal.get(content.summary.original) ?? null;
           if (change?.status === 'REJECTED') {
-            return { original: content.summary.original, effective: content.summary.original, rewritten: false };
+            return {
+              original: content.summary.original,
+              effective: content.summary.original,
+              rewritten: false,
+              change,
+            };
           }
           const effective =
             change && (change.status === 'EDITED' || change.status === 'REGENERATED')
               ? change.tailored_text
               : content.summary.tailored;
-          return { original: content.summary.original, effective, rewritten: true };
+          return { original: content.summary.original, effective, rewritten: true, change };
         })()
       : resume.summary
         ? (() => {
@@ -143,6 +153,7 @@ export function buildDocumentModel(
               original: change?.original_text ?? resume.summary!,
               effective: resume.summary!,
               rewritten: change !== null,
+              change,
             };
           })()
         : null;
