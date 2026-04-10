@@ -54,9 +54,9 @@ export default function EditWorkspace({
       {!doc ? (
         <EmptyState label={emptyLabel} />
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(380px,0.85fr)] xl:grid-cols-[minmax(0,1.2fr)_minmax(460px,1fr)] items-start">
           {/* Left — mode selector + editor */}
-          <div>
+          <div className="min-w-0">
             <div className="mb-4 flex items-center gap-1 border-b border-black/10">
               {EDIT_MODES.map(({ key, label, icon: Icon }) => (
                 <button
@@ -103,18 +103,23 @@ export default function EditWorkspace({
             )}
           </div>
 
-          {/* Right — sticky live preview */}
-          <div className="lg:sticky lg:top-8 lg:self-start">
-            <div className="mb-2 flex items-center justify-between px-1">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-brand">Live preview</p>
-              {preview === null && (
-                <span className="font-mono text-[9px] text-coral">preview unavailable</span>
-              )}
-            </div>
+          {/* Right — sticky live preview with auto-fitting scale */}
+          <div className="min-w-0 lg:sticky lg:top-8 lg:self-start">
             {preview ? (
-              <ResumePreview doc={preview} />
+              <ResumePreview
+                doc={preview}
+                variant="dark"
+                headerTitle="Live preview"
+                showControls={true}
+                maxHeight="calc(100vh - 120px)"
+              />
             ) : (
-              <EmptyState label="Preview unavailable — check the JSON validity of your document." />
+              <div className="rounded-[24px] border border-white/10 bg-[#18181b] p-8 text-center text-white shadow-2xl">
+                <p className="font-mono text-xs font-bold uppercase tracking-wider text-coral">Preview unavailable</p>
+                <p className="mt-2 text-xs text-muted">
+                  Check your document syntax to restore the live preview.
+                </p>
+              </div>
             )}
           </div>
         </div>
