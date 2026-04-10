@@ -3,6 +3,10 @@ name: ats-doctor
 services:
   db:
     image: pgvector/pgvector:pg15
+    # Host port 5432 is taken by another project; expose ATS Doctor's DB on 5433
+    # so the locally-run backend (mvn spring-boot:run) can reach it.
+    ports:
+      - "5433:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ats}
       POSTGRES_USER: ${POSTGRES_USER:-ats}
