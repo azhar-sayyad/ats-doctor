@@ -1,0 +1,176 @@
+# Resume export templates (CL-020): hardcoded app-side style catalog for the
+# single Thymeleaf HTML template (templates/export/resume.html) and the DOCX
+# writer. Every slug listed here is also the accepted value of the
+# `?template=` export param and PUT /tailored/{id}/template. `ats_clean` is the
+# default and reproduces the pre-template rendering byte-for-byte.
+resume_templates:
+  ats_clean:
+    name: "ATS Clean Standard"
+    description: "Single column, uppercase headings, maximum ATS compatibility (default)."
+    html:
+      body_font: "'Helvetica Neue', Helvetica, Arial, sans-serif"
+      heading_font: "'Helvetica Neue', Helvetica, Arial, sans-serif"
+      body_size_pt: 10
+      title_size_pt: 18
+      section_size_pt: 12
+      heading_size_pt: 10.5
+      body_line_height: 1.4
+      letter_spacing: 0.5
+      text_color: "#1e293b"
+      heading_color: "#0f172a"
+      title_rule_color: "#0f172a"
+      section_rule_color: "#cbd5e1"
+      contact_color: "#475569"
+      meta_color: "#94a3b8"
+      badge_bg: "#f1f5f9"
+      badge_border: "#e2e8f0"
+      uppercase_title: true
+      uppercase_headings: true
+    docx:
+      body_font: "Helvetica"
+      heading_font: "Helvetica"
+      body_size_pt: 11
+      title_size_pt: 16
+      section_size_pt: 12
+      heading_size_pt: 11
+      heading_color: "000000"
+      uppercase_headings: false
+    latex:
+      font_size: 10
+      margin_in: 0.7
+  modern_minimal:
+    name: "Modern Minimal"
+    description: "Clean sans-serif with blue accent and generous whitespace."
+    html:
+      body_font: "Inter, 'Segoe UI', system-ui, sans-serif"
+      heading_font: "Inter, 'Segoe UI', system-ui, sans-serif"
+      body_size_pt: 10.5
+      title_size_pt: 20
+      section_size_pt: 11
+      heading_size_pt: 10.5
+      body_line_height: 1.5
+      letter_spacing: 0
+      text_color: "#374151"
+      heading_color: "#111827"
+      title_rule_color: "#2563eb"
+      section_rule_color: "#e5e7eb"
+      contact_color: "#6b7280"
+      meta_color: "#9ca3af"
+      badge_bg: "#f8fafc"
+      badge_border: "#e2e8f0"
+      uppercase_title: false
+      uppercase_headings: false
+    docx:
+      body_font: "Arial"
+      heading_font: "Arial"
+      body_size_pt: 11
+      title_size_pt: 18
+      section_size_pt: 12
+      heading_size_pt: 11
+      heading_color: "111827"
+      uppercase_headings: false
+    latex:
+      font_size: 10
+      margin_in: 0.6
+  executive_classic:
+    name: "Executive Classic"
+    description: "Serif typeface with navy headings — a traditional executive look."
+    html:
+      body_font: "Georgia, 'Times New Roman', serif"
+      heading_font: "Georgia, 'Times New Roman', serif"
+      body_size_pt: 10.5
+      title_size_pt: 16
+      section_size_pt: 11
+      heading_size_pt: 10.5
+      body_line_height: 1.5
+      letter_spacing: 1.5
+      text_color: "#222222"
+      heading_color: "#1f3a5f"
+      title_rule_color: "#1f3a5f"
+      section_rule_color: "#b8c2cc"
+      contact_color: "#4a5568"
+      meta_color: "#8a97a5"
+      badge_bg: "#f2f5f8"
+      badge_border: "#d4dbe2"
+      uppercase_title: true
+      uppercase_headings: true
+    docx:
+      body_font: "Times New Roman"
+      heading_font: "Times New Roman"
+      body_size_pt: 11
+      title_size_pt: 16
+      section_size_pt: 12
+      heading_size_pt: 11
+      heading_color: "1F3A5F"
+      uppercase_headings: false
+    latex:
+      font_size: 11
+      margin_in: 0.8
+  technical_compact:
+    name: "Technical Compact"
+    description: "Dense sans-serif with monospace headings — maximum content per page."
+    html:
+      body_font: "system-ui, 'Segoe UI', sans-serif"
+      heading_font: "'SF Mono', Consolas, 'Liberation Mono', monospace"
+      body_size_pt: 9
+      title_size_pt: 14
+      section_size_pt: 10
+      heading_size_pt: 9
+      body_line_height: 1.3
+      letter_spacing: 0.3
+      text_color: "#111111"
+      heading_color: "#111111"
+      title_rule_color: "#111111"
+      section_rule_color: "#d1d5db"
+      contact_color: "#4b5563"
+      meta_color: "#9ca3af"
+      badge_bg: "#f3f4f6"
+      badge_border: "#d1d5db"
+      uppercase_title: true
+      uppercase_headings: true
+    docx:
+      body_font: "Arial"
+      heading_font: "Courier New"
+      body_size_pt: 9.5
+      title_size_pt: 14
+      section_size_pt: 11
+      heading_size_pt: 10
+      heading_color: "111111"
+      uppercase_headings: false
+    latex:
+      font_size: 9
+      margin_in: 0.6
+  academic_professional:
+    name: "Academic Professional"
+    description: "Serif body with muted slate headings — formal and understated."
+    html:
+      body_font: "'Palatino Linotype', Georgia, serif"
+      heading_font: "'Palatino Linotype', Georgia, serif"
+      body_size_pt: 10.5
+      title_size_pt: 17
+      section_size_pt: 11
+      heading_size_pt: 10.5
+      body_line_height: 1.45
+      letter_spacing: 0.2
+      text_color: "#262626"
+      heading_color: "#3f4a5a"
+      title_rule_color: "#3f4a5a"
+      section_rule_color: "#9aa5b1"
+      contact_color: "#5f6b7a"
+      meta_color: "#8a94a0"
+      badge_bg: "#f4f6f8"
+      badge_border: "#d8dee4"
+      uppercase_title: false
+      uppercase_headings: false
+    docx:
+      body_font: "Palatino Linotype"
+      heading_font: "Palatino Linotype"
+      body_size_pt: 11
+      title_size_pt: 17
+      section_size_pt: 12
+      heading_size_pt: 11
+      heading_color: "3F4A5A"
+      uppercase_headings: false
+    latex:
+      font_size: 12
+      margin_in: 0.9
