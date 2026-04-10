@@ -61,6 +61,10 @@ public class TailoredResume {
     @Column(columnDefinition = "jsonb")
     private String document;
 
+    /** Export template slug (resume-templates.yml, CL-020); defaults to ats_clean. */
+    @Column(nullable = false, length = 64)
+    private String template = "ats_clean";
+
     /** Rendered ATS-friendly HTML (SPRINT-06 export, TASK-079); null until first export. */
     @Column(columnDefinition = "TEXT")
     private String html;
@@ -154,6 +158,14 @@ public class TailoredResume {
 
     public void setDocument(String document) {
         this.document = document;
+    }
+
+    public String getTemplate() {
+        return template;
+    }
+
+    public void setTemplate(String template) {
+        this.template = template;
     }
 
     public String getHtml() {
