@@ -115,6 +115,7 @@ Legend — priority: P0 = MVP-blocking, P1 = MVP-desired, P2 = post-MVP.
 | FEAT-041 | FEATURE | PDF Export | EPIC-009 | — | SPRINT-06 | P0 | DONE | FEAT-040 |
 | FEAT-042 | FEATURE | DOCX Export | EPIC-009 | — | SPRINT-06 | P1 | DONE | FEAT-039 |
 | FEAT-043 | FEATURE | Export Endpoints & Gating | EPIC-009 | — | SPRINT-06 | P0 | DONE | FEAT-041, FEAT-042 |
+| FEAT-054 | FEATURE | Export Template Selection | EPIC-009 | — | SPRINT-07 | P1 | DONE | FEAT-040, FEAT-043 |
 
 ### EPIC-010 History & Versioning (SPRINT-07)
 
@@ -259,6 +260,7 @@ Legend — priority: P0 = MVP-blocking, P1 = MVP-desired, P2 = post-MVP.
 | TASK-080 | TASK | Flying Saucer + OpenPDF PDF generation + tests | EPIC-009 | FEAT-041 | SPRINT-06 | P0 | DONE | TASK-079 |
 | TASK-081 | TASK | Apache POI (XWPF) DOCX generation + tests | EPIC-009 | FEAT-042 | SPRINT-06 | P1 | DONE | TASK-078 |
 | TASK-082 | TASK | export/pdf\|docx\|json endpoints + 409 gating | EPIC-009 | FEAT-043 | SPRINT-06 | P0 | DONE | TASK-080, TASK-081 |
+| TASK-100 | TASK | App-side export template catalog + master-resume editor parity | EPIC-009 | FEAT-054 | SPRINT-07 | P1 | DONE | TASK-082 |
 
 ### SPRINT-07 (History + Hardening)
 
@@ -292,5 +294,5 @@ Legend — priority: P0 = MVP-blocking, P1 = MVP-desired, P2 = post-MVP.
 ## Quick counts (derived)
 
 - EPICs: 12 (9 DONE, 0 IN_PROGRESS, 0 PLANNED, 2 READY, 1 BACKLOG)
-- Features: 53 (43 DONE, 0 IN_PROGRESS, 5 READY, 0 PLANNED, 5 BACKLOG)
-- Tasks: 99 (83 DONE, 0 IN_PROGRESS, 9 READY, 0 PLANNED, 7 BACKLOG)
+- Features: 54 (44 DONE, 0 IN_PROGRESS, 5 READY, 0 PLANNED, 5 BACKLOG)
+- Tasks: 100 (84 DONE, 0 IN_PROGRESS, 9 READY, 0 PLANNED, 7 BACKLOG)
