@@ -3,6 +3,7 @@ package com.atsdoctor.backend.api.tailor;
 import com.atsdoctor.backend.application.tailoring.TailoringConflictException;
 import com.atsdoctor.backend.application.tailoring.TailoringNotFoundException;
 import com.atsdoctor.backend.application.tailoring.TailoringValidationException;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.UnknownResumeTemplateException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -28,6 +29,11 @@ public class TailoringExceptionHandler {
     @ExceptionHandler(TailoringValidationException.class)
     public ProblemDetail badData(TailoringValidationException ex) {
         return problem(HttpStatus.BAD_REQUEST, "Invalid tailoring request", ex.getMessage());
+    }
+
+    @ExceptionHandler(UnknownResumeTemplateException.class)
+    public ProblemDetail unknownTemplate(UnknownResumeTemplateException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Unknown resume template", ex.getMessage());
     }
 
     @ExceptionHandler(TailoringConflictException.class)
