@@ -36,7 +36,7 @@ export default async function TailoredDetail({ params }: { params: { id: string 
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <Link
         href="/tailored"
         className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-muted transition hover:text-brand"
