@@ -79,12 +79,14 @@ files; path-traversal-safe storage under `data/resumes/`.
 | Endpoint | Method | Purpose | Request | Response | Status | Feature |
 |----------|--------|---------|---------|----------|--------|---------|
 | `/tailored` | GET | List tailored resumes (paginated, newest first). | query `page: int` (default 0), `size: int` (default 10) | page envelope `{"items": [tailored_resume], "page", "size", "total", "has_more"}` | — | FEAT-032 (TASK-066) |
-| `/tailored/{tailored_id}` | GET | Get tailored resume. | path `tailored_id: UUID` | `tailored_resume` JSON | includes `content` (summary/experience/order/generation), `score_before`, `score_after`, `state`, `error`; 404 if not found | FEAT-032 (TASK-066) |
+| `/tailored/{tailored_id}` | GET | Get tailored resume. | path `tailored_id: UUID` | `tailored_resume` JSON | includes `content` (summary/experience/order/generation), `score_before`, `score_after`, `state`, `template`, `error`; 404 if not found | FEAT-032 (TASK-066) |
+| `/tailored/{tailored_id}/edit` | PUT | Persist a full edited document (structured JSON). | path `tailored_id: UUID`; body `structured_data: JSON` (§4.2) | `tailored_resume` JSON (returns the edited `document` — viewer/exports/validation switch to it) | 400 invalid document; 404 unknown id | FEAT-041 (TASK-080) |
 | `/tailored/{tailored_id}/changes` | GET | List per-change review state. | path `tailored_id: UUID` | `[tailored_change]` JSON | — | FEAT-037 (TASK-074) |
 | `/tailored/{tailored_id}/changes/{change_id}` | POST | Accept/reject/edit/regenerate a change. | path ids; body `{"action": "accept" \| "reject" \| "edit" \| "regenerate", "new_text": "…"}` (edit requires non-blank `new_text`) | `tailored_change` JSON | change → `ACCEPTED`/`REJECTED`/`EDITED`/`REGENERATED`; 400 unknown action; 404 unknown ids; 409 when not reviewable | FEAT-037 (TASK-075) |
 | `/tailored/{tailored_id}/changes/{change_id}/trace` | GET | Resolve a change to its source chain. | path ids | trace JSON: change + `evidence` (text/section/section_id/`source_refs`) + `section` (company/title) + `bullet` + `validation_issues` | 404 unknown tailored/change | FEAT-036 (TASK-072) |
 | `/tailored/{tailored_id}/validate` | POST | Run fact-grounding check. | path `tailored_id: UUID` | `validation` JSON (issues: `unsupported_technology \| inflated_metric \| new_company \| new_title \| unsupported_achievement`) | `VALIDATING`; 409 unless state ∈ VALIDATING/READY/NEEDS_REVIEW | FEAT-035 (TASK-071) |
 | `/tailored/{tailored_id}/approve` | POST | Approve all changes (required before export). | path `tailored_id: UUID` | `{"status": "approved"}` | Tailoring → `APPROVED`; 409 while any change is `PENDING` or the persisted validation report is not `valid=true` (idempotent once `APPROVED`) | FEAT-039 (TASK-078) |
+| `/tailored/{tailored_id}/template` | PUT | Set the export template. | path `tailored_id: UUID`; body `{"template": "<slug>"}` | `tailored_resume` JSON | 400 unknown slug (rejected against catalog §6.6); 404 unknown id | FEAT-054 (TASK-100) |
 
 Per-change review lifecycle: `PENDING` → `ACCEPTED | REJECTED | EDITED | REGENERATED`.
 
@@ -92,15 +94,27 @@ Per-change review lifecycle: `PENDING` → `ACCEPTED | REJECTED | EDITED | REGEN
 
 | Endpoint | Method | Purpose | Request | Response | Feature |
 |----------|--------|---------|---------|----------|---------|
-| `/tailored/{tailored_id}/export/{format}` | GET | Export the finalized resume. | path `tailored_id: UUID`, `format` ∈ `pdf` \| `docx` \| `json` | PDF/DOCX file (Content-Disposition attachment) or JSON | FEAT-043 (TASK-082) |
+| `GET /tailored/{tailored_id}/export/{format}` | GET | Export the finalized resume. | path `tailored_id: UUID`, `format` ∈ `pdf` \| `docx` \| `json`; query `template: str` (optional — overrides the persisted selection) | PDF/DOCX file (Content-Disposition attachment) or JSON | FEAT-054 (TASK-100) |
 
 > **Export gate** (PRD §8.2): export returns **409 Conflict** until the state is
 > `READY`/`NEEDS_REVIEW`/`APPROVED`, all changes are resolved (no `PENDING`
 > rows) and the persisted validation report is `valid=true` (`pdf_path`/
-> `docx_path`/`html` are populated during export; 400 for an unknown `format`;
-> 404 for an unknown `tailored_id`).
+> `docx_path`/`html` are populated during export; 400 for an unknown `format`
+> or `template`; 404 for an unknown `tailored_id`).
 
-## 6. AI Configuration Endpoints
+## 6. Resume Template Catalog
+
+| Endpoint | Method | Purpose | Request | Response | Feature |
+|----------|--------|---------|---------|----------|---------|
+| `/resume-templates` | GET | List export templates (app-side catalog, NOT AI-generated). | — | `[{"slug", "name", "description"}]` JSON | FEAT-054 (TASK-100) |
+
+Templates are declared in `backend/src/main/resources/resume-templates.yml`
+(no database table). The default template slug is `ats_clean`; templates are
+referenced by slug from the export endpoint and stored on
+`tailored_resumes.template`. Skipped/REDACTED text per selected template — only
+the **original** fallback text is shown in the HTML preview and exported.
+
+## 7. AI Configuration Endpoints
 
 | Endpoint | Method | Purpose | Request | Response | Feature |
 |----------|--------|---------|---------|----------|---------|
@@ -111,7 +125,7 @@ Per-change review lifecycle: `PENDING` → `ACCEPTED | REJECTED | EDITED | REGEN
 `config` JSON exposes the profile→model mapping (§6.2/§6.3) plus transparency
 payload (provider + "data leaves this machine: yes/no", PRD §12.2).
 
-## 7. Cross-cutting
+## 8. Cross-cutting
 
 - **State-driven responses**: `analysis.state` (PRD names it `status`; V2/V3
   precedent — see 08-database-schema), `tailored_resume.status`,
