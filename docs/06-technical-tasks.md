@@ -2060,8 +2060,35 @@ updated_at: 2026-08-12
 
 ---
 
+## FEAT-054 — Export Template Selection
+
+### TASK-100 — App-side export template catalog + master-resume editor parity
+```yaml
+id: TASK-100
+title: App-side export template catalog + master-resume editor parity
+status: DONE
+priority: P1
+epic: EPIC-009
+feature: FEAT-054
+sprint: SPRINT-07
+dependencies: [TASK-082]
+estimate: M
+acceptance_criteria:
+  - "resume-templates.yml catalog (slugs, app-only + column layout for PDF/DOCX); GET /resume-templates lists slug/name/description"
+  - "PUT /tailored/{id}/template persists the slug; export accepts ?template= override (invalid slug -> 400)"
+  - "ExportService resolves the template for HTML/PDF/DOCX; LaTeX export supports the column layout"
+  - "frontend EditWorkspace genericized (Structured/LaTeX/JSON modes with onSave overrides) and reused by /resume master editor"
+  - "Workspace toolbar gains the template selector; exports carry the selected template"
+files_or_modules: [backend/src/main/resources/resume-templates.yml, backend/src/main/java/com/atsdoctor/backend/api/tailor/ResumeTemplateCatalog.java, backend/src/main/java/com/atsdoctor/backend/api/tailor/ResumeTemplateController.java, frontend/app/(dashboard)/tailored/[id]/EditWorkspace.tsx, frontend/app/(dashboard)/resume/page.tsx]
+tests: [ResumeTemplateCatalogTest, ResumeTemplateControllerTest, TailoringExportControllerTest, TailoringReviewFlowTest]
+created_at: 2026-08-15
+updated_at: 2026-08-15
+```
+
+---
+
 ## Summary
 
-- Tasks: **99** (TASK-001..TASK-099)
-- By status: 92 PLANNED · 7 BACKLOG · 0 DONE
+- Tasks: **100** (TASK-001..TASK-100)
+- By status: 84 DONE · 0 IN_PROGRESS · 9 READY · 0 PLANNED · 7 BACKLOG
 - Every task maps to a feature and a sprint.
