@@ -19,9 +19,11 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -151,6 +153,42 @@ class TailoringControllerTest {
         mvc.perform(post("/api/v1/tailored/" + UUID.randomUUID() + "/approve"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("approved"));
+    }
+
+    @Test
+    void set_template_persists_the_selection() throws Exception {
+        TailoredResume updated = tailored("READY", 68, 74);
+        updated.setTemplate("modern_minimal");
+        when(tailoringService.setTemplate(any(), eq("modern_minimal"))).thenReturn(updated);
+
+        mvc.perform(put("/api/v1/tailored/" + UUID.randomUUID() + "/template")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"template\":\"modern_minimal\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.template").value("modern_minimal"));
+    }
+
+    @Test
+    void set_template_maps_unknown_slug_to_400() throws Exception {
+        when(tailoringService.setTemplate(any(), eq("nope")))
+                .thenThrow(new TailoringValidationException("Unknown resume template 'nope'"));
+
+        mvc.perform(put("/api/v1/tailored/" + UUID.randomUUID() + "/template")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"template\":\"nope\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid tailoring request"));
+    }
+
+    @Test
+    void set_template_maps_blank_slug_to_400() throws Exception {
+        when(tailoringService.setTemplate(any(), eq("")))
+                .thenThrow(new TailoringValidationException("template must not be blank"));
+
+        mvc.perform(put("/api/v1/tailored/" + UUID.randomUUID() + "/template")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"template\":\"\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
