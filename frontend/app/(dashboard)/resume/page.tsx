@@ -1,22 +1,24 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, apiGet, apiPut, apiUpload, type ResumeVersion } from '../../../lib/api';
+import { useRouter } from 'next/navigation';
+import { ApiError, apiGet, apiUpload, type ResumeVersion } from '../../../lib/api';
 import type { StructuredResume } from '../tailored/types';
-import { parseStructured, cloneResume } from '../../../lib/resumeModel';
-// import StepGuide from '../../../components/StepGuide';
-import ResumeForm from '../../../components/ResumeForm';
-import { UploadCloud, CheckCircle2, AlertCircle, Loader2, Save, FileText } from 'lucide-react';
+import { parseStructured, buildDocumentModel } from '../../../lib/resumeModel';
+import PreviewModal from './PreviewModal';
+import { UploadCloud, CheckCircle2, AlertCircle, Loader2, FileText, Eye, PenLine, ArrowRight } from 'lucide-react';
 
 const PROCESSING = new Set(['UPLOADED', 'EXTRACTING', 'PARSING']);
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.txt'];
 
 export default function ResumePage() {
+  const router = useRouter();
   const [version, setVersion] = useState<ResumeVersion | null>(null);
   const [draft, setDraft] = useState<StructuredResume | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -101,26 +103,6 @@ export default function ResumePage() {
     } finally {
       setUploading(false);
     }
-  };
-
-  const saveEdits = async () => {
-    if (!version || !draft) return;
-    setError(null);
-    try {
-      const v = await apiPut<ResumeVersion>(`/resumes/${version.id}/edit`, draft);
-      applyVersion(v);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
-    }
-  };
-
-  const patch = (updater: (d: StructuredResume) => void) => {
-    setDraft((current) => {
-      if (!current) return current;
-      const next = cloneResume(current);
-      updater(next);
-      return next;
-    });
   };
 
   const state = version?.state ?? 'NONE';
@@ -228,17 +210,48 @@ export default function ResumePage() {
       {version && state === 'READY' && draft && (
         <>
           <ReviewSummary evidence={version.evidence_summary} />
-          <ResumeForm draft={draft} patch={patch} />
-          <div className="mt-8 flex justify-end">
+
+          {/* Master Resume actions — View (preview dialog) or Edit (dedicated page) */}
+          <section className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <button
-              onClick={saveEdits}
-              className="inline-flex items-center gap-2 rounded-[10px] bg-brand px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-brand-hover shadow-sm"
+              onClick={() => setPreviewOpen(true)}
+              className="group rounded-[24px] border border-black/10 bg-surface p-6 text-left transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
             >
-              <Save className="h-4 w-4" />
-              <span>Save edits & update source</span>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-soft text-brand">
+                <Eye className="h-6 w-6" />
+              </div>
+              <h2 className="mt-4 text-lg font-bold tracking-tight text-foreground">View Resume</h2>
+              <p className="mt-1 text-sm text-muted">
+                Read-only preview of your structured master resume in a dialog.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-brand">
+                Open preview
+                <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </span>
             </button>
-          </div>
+
+            <button
+              onClick={() => router.push('/resume/edit')}
+              className="group rounded-[24px] border border-black/10 bg-surface p-6 text-left transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-foreground text-white">
+                <PenLine className="h-6 w-6" />
+              </div>
+              <h2 className="mt-4 text-lg font-bold tracking-tight text-foreground">Edit Resume</h2>
+              <p className="mt-1 text-sm text-muted">
+                Edit on a dedicated page — Structured, LaTeX or JSON mode with a live preview.
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-brand">
+                Open editor
+                <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </span>
+            </button>
+          </section>
         </>
+      )}
+
+      {previewOpen && draft && (
+        <PreviewModal doc={buildDocumentModel(draft, null, [])} onClose={() => setPreviewOpen(false)} />
       )}
 
       {!version && !error && (
