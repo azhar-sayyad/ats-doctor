@@ -6,7 +6,7 @@ import type { DocModel, DocSection, DocBullet } from '../../../../lib/resumeMode
 import { rewrittenBullets } from '../../../../lib/resumeModel';
 import DiffText from '../../../../components/DiffText';
 import { EmptyState } from '../../../../components/ui';
-import { ResumePreview, ResumeShell } from './ResumePreview';
+import { ResumePreview, ResumeShell, AutoFitScale } from './ResumePreview';
 import {
   Check,
   Edit3,
@@ -49,7 +49,7 @@ export default function DocumentViewer({ doc, changes, busy, tab, onTabChange, o
 
   return (
     <div className="rounded-[24px] border border-black/10 bg-white p-4 sm:p-6 shadow-xs">
-      {tab === 'document' && <ResumePreview doc={doc} />}
+      {tab === 'document' && <ResumePreview doc={doc} variant="plain" showControls={true} />}
       {tab === 'changes' && (
         <ChangesReview
           doc={doc}
@@ -156,28 +156,30 @@ function ChangesReview({
         })()
       )}
 
-      <ResumeShell
-        doc={doc}
-        renderBullet={(section, bullet) => {
-          const change = bullet.change;
-          const open = change !== null && openBullet === change.id;
-          return (
-            <DiffBullet
-              section={section}
-              bullet={bullet}
-              open={open}
-              onToggle={() => setOpenBullet(change === null ? null : open ? null : change.id)}
-              busy={busy}
-              onAct={onAct}
-              onTrace={onTrace}
-              editing={editingId !== null && change !== null && editingId === change.id}
-              setEditing={setEditingId}
-              draft={draft}
-              setDraft={setDraft}
-            />
-          );
-        }}
-      />
+      <AutoFitScale variant="plain" showControls={true}>
+        <ResumeShell
+          doc={doc}
+          renderBullet={(section, bullet) => {
+            const change = bullet.change;
+            const open = change !== null && openBullet === change.id;
+            return (
+              <DiffBullet
+                section={section}
+                bullet={bullet}
+                open={open}
+                onToggle={() => setOpenBullet(change === null ? null : open ? null : change.id)}
+                busy={busy}
+                onAct={onAct}
+                onTrace={onTrace}
+                editing={editingId !== null && change !== null && editingId === change.id}
+                setEditing={setEditingId}
+                draft={draft}
+                setDraft={setDraft}
+              />
+            );
+          }}
+        />
+      </AutoFitScale>
     </div>
   );
 }
