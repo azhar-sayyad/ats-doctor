@@ -3,6 +3,7 @@ package com.atsdoctor.backend.application.tailoring;
 import com.atsdoctor.backend.api.PageResult;
 import com.atsdoctor.backend.domain.states.StateMachines;
 import com.atsdoctor.backend.domain.states.TailoringState;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog;
 import com.atsdoctor.backend.infrastructure.persistence.Analysis;
 import com.atsdoctor.backend.infrastructure.persistence.AnalysisRepository;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredChange;
@@ -43,15 +44,18 @@ public class TailoringService {
     private final AnalysisRepository analysisRepository;
     private final TailoredResumeRepository tailoredResumeRepository;
     private final TailoredChangeRepository tailoredChangeRepository;
+    private final ResumeTemplateCatalog templateCatalog;
     private final ApplicationEventPublisher publisher;
 
     public TailoringService(AnalysisRepository analysisRepository,
                             TailoredResumeRepository tailoredResumeRepository,
                             TailoredChangeRepository tailoredChangeRepository,
+                            ResumeTemplateCatalog templateCatalog,
                             ApplicationEventPublisher publisher) {
         this.analysisRepository = analysisRepository;
         this.tailoredResumeRepository = tailoredResumeRepository;
         this.tailoredChangeRepository = tailoredChangeRepository;
+        this.templateCatalog = templateCatalog;
         this.publisher = publisher;
     }
 
@@ -135,6 +139,25 @@ public class TailoringService {
     @Transactional(readOnly = true)
     public TailoredResume byId(UUID tailoredResumeId) {
         return require(tailoredResumeId);
+    }
+
+    /**
+     * Persist the export template selection (CL-020): validates the slug
+     * against the app-side catalog (400 unknown) and stores it on the row so
+     * exports without an explicit {@code ?template=} param use it.
+     */
+    @Transactional
+    public TailoredResume setTemplate(UUID tailoredResumeId, String template) {
+        TailoredResume tailored = require(tailoredResumeId);
+        if (template == null || template.isBlank()) {
+            throw new TailoringValidationException("template must not be blank");
+        }
+        if (templateCatalog.get(template).isEmpty()) {
+            throw new TailoringValidationException(
+                    "Unknown resume template '" + template + "' (available: " + String.join(", ", templateCatalog.slugs()) + ")");
+        }
+        tailored.setTemplate(template);
+        return tailoredResumeRepository.save(tailored);
     }
 
     /** Paginated list, newest first; page/size are clamped in {@link PageResult}. */
