@@ -5,6 +5,11 @@ import com.atsdoctor.backend.application.tailoring.TailoringNotFoundException;
 import com.atsdoctor.backend.application.tailoring.TailoringService;
 import com.atsdoctor.backend.application.tailoring.TailoringValidationException;
 import com.atsdoctor.backend.domain.states.TailoringState;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.HtmlStyle;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.DocxStyle;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.LatexStyle;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.ResumeTemplate;
 import com.atsdoctor.backend.infrastructure.persistence.Analysis;
 import com.atsdoctor.backend.infrastructure.persistence.AnalysisRepository;
 import com.atsdoctor.backend.infrastructure.persistence.Job;
@@ -46,6 +51,8 @@ class TailoringServiceTest {
     @Mock
     private TailoredChangeRepository tailoredChangeRepository;
     @Mock
+    private ResumeTemplateCatalog templateCatalog;
+    @Mock
     private ApplicationEventPublisher publisher;
 
     private TailoringService service;
@@ -53,7 +60,7 @@ class TailoringServiceTest {
     @BeforeEach
     void setUp() {
         service = new TailoringService(analysisRepository, tailoredResumeRepository,
-                tailoredChangeRepository, publisher);
+                tailoredChangeRepository, templateCatalog, publisher);
         when(tailoredResumeRepository.saveAndFlush(any(TailoredResume.class))).thenAnswer(inv -> inv.getArgument(0));
         when(tailoredResumeRepository.save(any(TailoredResume.class))).thenAnswer(inv -> inv.getArgument(0));
         when(tailoredChangeRepository.save(any(TailoredChange.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -74,6 +81,7 @@ class TailoringServiceTest {
 
         assertThat(tailored.getState()).isEqualTo("QUEUED");
         assertThat(tailored.getScoreBefore()).isEqualTo(68);
+        assertThat(tailored.getTemplate()).isEqualTo("ats_clean");
         assertThat(tailored.getError()).isNull();
     }
 
@@ -182,6 +190,55 @@ class TailoringServiceTest {
 
         assertThatThrownBy(() -> service.changes(UUID.randomUUID()))
                 .isInstanceOf(TailoringNotFoundException.class);
+    }
+
+    @Test
+    void set_template_persists_a_known_slug() {
+        UUID id = UUID.randomUUID();
+        TailoredResume tailored = tailored("READY");
+        when(tailoredResumeRepository.findById(id)).thenReturn(Optional.of(tailored));
+        when(templateCatalog.get("modern_minimal")).thenReturn(Optional.of(template("modern_minimal")));
+
+        TailoredResume updated = service.setTemplate(id, "modern_minimal");
+
+        assertThat(updated.getTemplate()).isEqualTo("modern_minimal");
+        verify(tailoredResumeRepository).save(tailored);
+    }
+
+    @Test
+    void set_template_rejects_unknown_slug() {
+        when(tailoredResumeRepository.findById(any())).thenReturn(Optional.of(tailored("READY")));
+        when(templateCatalog.get("nope")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.setTemplate(UUID.randomUUID(), "nope"))
+                .isInstanceOf(TailoringValidationException.class)
+                .hasMessageContaining("Unknown resume template 'nope'");
+    }
+
+    @Test
+    void set_template_rejects_blank_slug() {
+        when(tailoredResumeRepository.findById(any())).thenReturn(Optional.of(tailored("READY")));
+
+        assertThatThrownBy(() -> service.setTemplate(UUID.randomUUID(), "  "))
+                .isInstanceOf(TailoringValidationException.class)
+                .hasMessageContaining("must not be blank");
+    }
+
+    @Test
+    void set_template_throws_not_found_for_unknown_tailored() {
+        when(tailoredResumeRepository.findById(any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.setTemplate(UUID.randomUUID(), "ats_clean"))
+                .isInstanceOf(TailoringNotFoundException.class);
+    }
+
+    private static ResumeTemplate template(String slug) {
+        HtmlStyle html = new HtmlStyle("Helvetica", "Helvetica", 10, 18, 12, 10.5f,
+                1.4f, 0.5f, "#1e293b", "#0f172a", "#0f172a", "#cbd5e1",
+                "#475569", "#94a3b8", "#f1f5f9", "#e2e8f0", true, true);
+        DocxStyle docx = new DocxStyle("Helvetica", "Helvetica", 11, 16, 12, 11, "000000", false);
+        LatexStyle latex = new LatexStyle(10, 0.7f);
+        return new ResumeTemplate(slug, "Template " + slug, "Test", html, docx, latex);
     }
 
     private static Analysis readyAnalysis(int score) {
