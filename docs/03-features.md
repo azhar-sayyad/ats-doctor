@@ -705,7 +705,8 @@ SPRINT-00..02 features (FEAT-001..021) have blocks above.
 | FEAT-050 | Multiple Resume Variants | EPIC-012 | SPRINT-08+ | P2 | BACKLOG | — |
 | FEAT-051 | Cover Letters | EPIC-012 | SPRINT-08+ | P2 | BACKLOG | — |
 | FEAT-052 | Application Tracking | EPIC-012 | SPRINT-08+ | P2 | BACKLOG | — |
-| FEAT-053 | OCR for Scanned PDFs | EPIC-012 | SPRINT-08+ | P2 | BACKLOG
+| FEAT-053 | OCR for Scanned PDFs | EPIC-012 | SPRINT-08+ | P2 | BACKLOG |
+| FEAT-054 | Export Template Selection | EPIC-009 | SPRINT-07 | P1 | DONE | FEAT-040, FEAT-043 |
 
 
 ## FEAT-028 — Selective Tailoring Decision Layer
