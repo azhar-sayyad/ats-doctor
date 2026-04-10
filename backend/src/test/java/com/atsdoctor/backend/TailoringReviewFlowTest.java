@@ -174,6 +174,35 @@ class TailoringReviewFlowTest extends PipelineIntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("APPROVED"))
                 .andExpect(jsonPath("$.score_after").isNumber());
+
+        // Template selection (CL-020): saved template drives the default
+        // export; an explicit ?template= overrides it.
+        mvc.perform(put("/api/v1/tailored/" + tailoredId + "/template")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"template\":\"modern_minimal\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.template").value("modern_minimal"));
+        assertThat(tailoredResumeRepository.findById(UUID.fromString(tailoredId))
+                .orElseThrow().getTemplate()).isEqualTo("modern_minimal");
+
+        // Default export (no param) renders with the saved template's accent.
+        mvc.perform(get("/api/v1/tailored/" + tailoredId + "/export/pdf"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/pdf"));
+        assertThat(tailoredResumeRepository.findById(UUID.fromString(tailoredId))
+                .orElseThrow().getHtml()).contains("#2563eb");
+
+        // Explicit param wins; unknown slug is a 400.
+        mvc.perform(get("/api/v1/tailored/" + tailoredId + "/export/pdf")
+                        .param("template", "ats_clean"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/pdf"));
+        assertThat(tailoredResumeRepository.findById(UUID.fromString(tailoredId))
+                .orElseThrow().getHtml()).contains("#0f172a");
+        mvc.perform(get("/api/v1/tailored/" + tailoredId + "/export/pdf")
+                        .param("template", "bogus"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Unknown resume template"));
     }
 
     @Test
