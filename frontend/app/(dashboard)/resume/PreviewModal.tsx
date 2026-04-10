@@ -38,8 +38,8 @@ export default function PreviewModal({ doc, onClose }: Props) {
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto p-6">
-          <ResumePreview doc={doc} />
+        <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+          <ResumePreview doc={doc} variant="plain" showControls={true} />
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-black/10 p-4">
