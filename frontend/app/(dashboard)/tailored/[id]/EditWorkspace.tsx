@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { TailoredResume } from '../types';
+import type { StructuredResume, TailoredResume } from '../types';
 import { EmptyState } from '../../../../components/ui';
 import type { DocModel } from '../../../../lib/resumeModel';
 import { toDocument } from '../../../../lib/resumeModel';
@@ -14,9 +14,17 @@ import { Braces, FileCode2, FileEdit } from 'lucide-react';
 type EditMode = 'structured' | 'latex' | 'json';
 
 interface Props {
-  tailoredId: string;
+  /** Full document model to edit (structured + evidence + changes). */
   doc: DocModel | null;
+  /** Persistence target for the default tailored-resume endpoint (PUT /tailored/{id}/edit). */
+  docId?: string;
   onDocumentSaved: (updated: TailoredResume) => void;
+  /** Custom persistence overrides; default saves to the tailored-resume endpoint. */
+  onSaveStructured?: (draft: StructuredResume) => Promise<unknown>;
+  onSaveLatex?: (doc: DocModel) => Promise<unknown>;
+  onSaveJson?: (draft: StructuredResume) => Promise<unknown>;
+  /** Shown when there is nothing to edit yet. */
+  emptyLabel?: string;
 }
 
 const EDIT_MODES: { key: EditMode; label: string; icon: typeof FileEdit }[] = [
@@ -25,7 +33,15 @@ const EDIT_MODES: { key: EditMode; label: string; icon: typeof FileEdit }[] = [
   { key: 'json', label: 'JSON', icon: Braces },
 ];
 
-export default function EditWorkspace({ tailoredId, doc, onDocumentSaved }: Props) {
+export default function EditWorkspace({
+  doc,
+  docId,
+  onDocumentSaved,
+  onSaveStructured,
+  onSaveLatex,
+  onSaveJson,
+  emptyLabel = 'No document to edit yet. Bullets appear here after the tailoring run.',
+}: Props) {
   const [mode, setMode] = useState<EditMode>('structured');
   const [preview, setPreview] = useState<DocModel | null>(doc);
 
@@ -36,7 +52,7 @@ export default function EditWorkspace({ tailoredId, doc, onDocumentSaved }: Prop
   return (
     <div>
       {!doc ? (
-        <EmptyState label="No document to edit yet. Bullets appear here after the tailoring run." />
+        <EmptyState label={emptyLabel} />
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           {/* Left — mode selector + editor */}
@@ -60,19 +76,29 @@ export default function EditWorkspace({ tailoredId, doc, onDocumentSaved }: Prop
 
             {mode === 'structured' && (
               <TailoredEditor
-                tailoredId={tailoredId}
+                docId={docId}
                 initial={toDocument(doc)}
                 onSaved={onDocumentSaved}
                 onPreviewChange={setPreview}
+                onSave={onSaveStructured}
               />
             )}
-            {mode === 'latex' && <LatexEdit tailoredId={tailoredId} initial={doc} onPreviewChange={setPreview} />}
+            {mode === 'latex' && (
+              <LatexEdit
+                docId={docId}
+                initial={doc}
+                onPreviewChange={setPreview}
+                onSaved={onDocumentSaved}
+                onSave={onSaveLatex}
+              />
+            )}
             {mode === 'json' && (
               <JsonEdit
-                tailoredId={tailoredId}
+                docId={docId}
                 initial={toDocument(doc)}
                 onSaved={onDocumentSaved}
                 onPreviewChange={setPreview}
+                onSave={onSaveJson}
               />
             )}
           </div>
