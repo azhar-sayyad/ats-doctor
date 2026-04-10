@@ -8,6 +8,8 @@ export interface TailoredResume {
   content: TailoredContent | null;
   /** Full editable tailored document JSON (merged resume); null until the user saves an edit. */
   document: string | null;
+  /** Export template slug (resume-templates.yml catalog); defaults to ats_clean. */
+  template: string;
   error: string | null;
   created_at: string;
   updated_at: string;

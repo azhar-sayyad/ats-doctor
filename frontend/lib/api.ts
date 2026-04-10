@@ -291,7 +291,18 @@ export const reviewChange = (tailoredId: string, changeId: string, action: strin
 export const approveTailored = (id: string) => apiPost<{ status: string }>(`/tailored/${id}/approve`);
 export const editTailoredDocument = (id: string, document: unknown) =>
   apiPut<TailoredResume>(`/tailored/${id}/edit`, document);
-export const exportTailoredUrl = (id: string, format: string) => `${API_BASE_URL}/tailored/${id}/export/${format}`;
+export const exportTailoredUrl = (id: string, format: string, template?: string) =>
+  `${API_BASE_URL}/tailored/${id}/export/${format}${template ? `?template=${encodeURIComponent(template)}` : ''}`;
+
+// Resume templates (CL-020): app-side catalog, per-resume selection persisted.
+export interface ResumeTemplateInfo {
+  slug: string;
+  name: string;
+  description: string;
+}
+export const getResumeTemplates = () => apiGet<ResumeTemplateInfo[]>('/resume-templates');
+export const setTailoredTemplate = (id: string, template: string) =>
+  apiPut<TailoredResume>(`/tailored/${id}/template`, { template });
 
 // AI transparency
 export const getAiConfig = () => apiGet<AiConfig>('/ai/config');
@@ -299,3 +310,5 @@ export const getAiConfig = () => apiGet<AiConfig>('/ai/config');
 // Resume (current master version + specific versions)
 export const getCurrentResume = () => apiGet<ResumeVersion>('/resumes/current');
 export const getResumeVersion = (id: string) => apiGet<ResumeVersion>(`/resumes/${id}`);
+export const editMasterResume = (versionId: string, document: unknown) =>
+  apiPut<ResumeVersion>(`/resumes/${versionId}/edit`, document);
