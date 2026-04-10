@@ -6,6 +6,7 @@ import com.atsdoctor.backend.application.export.ExportService;
 import com.atsdoctor.backend.application.tailoring.TailoringConflictException;
 import com.atsdoctor.backend.application.tailoring.TailoringNotFoundException;
 import com.atsdoctor.backend.application.tailoring.TailoringService;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.UnknownResumeTemplateException;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResume;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -43,7 +46,7 @@ class TailoringExportControllerTest {
 
     @Test
     void pdf_returns_the_rendered_artifact() throws Exception {
-        when(exportService.pdf(any())).thenReturn(
+        when(exportService.pdf(any(), isNull())).thenReturn(
                 new ExportService.ExportArtifact("application/pdf", "tailored-resume-x.pdf",
                         "%PDF-1.4 test".getBytes(StandardCharsets.UTF_8)));
 
@@ -56,15 +59,36 @@ class TailoringExportControllerTest {
 
     @Test
     void docx_returns_the_rendered_artifact() throws Exception {
-        when(exportService.docx(any())).thenReturn(
+        when(exportService.docx(any(), isNull())).thenReturn(
                 new ExportService.ExportArtifact(
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "tailored-resume-y.docx", new byte[]{(byte) 0x50, (byte) 0x4B, (byte) 0x03, (byte) 0x04}));
 
         mvc.perform(get("/api/v1/tailored/" + UUID.randomUUID() + "/export/docx"))
                 .andExpect(status().isOk())
-                .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", "attachment; filename=\"tailored-resume-y.docx\""));
+    }
+
+    @Test
+    void template_param_is_forwarded_to_the_service() throws Exception {
+        when(exportService.pdf(any(), eq("modern_minimal"))).thenReturn(
+                new ExportService.ExportArtifact("application/pdf", "tailored-resume-x.pdf",
+                        "%PDF-1.4 test".getBytes(StandardCharsets.UTF_8)));
+
+        mvc.perform(get("/api/v1/tailored/" + UUID.randomUUID() + "/export/pdf")
+                        .param("template", "modern_minimal"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void unknown_template_maps_to_400() throws Exception {
+        doThrow(new UnknownResumeTemplateException("Unknown resume template 'nope'"))
+                .when(exportService).pdf(any(), any());
+
+        mvc.perform(get("/api/v1/tailored/" + UUID.randomUUID() + "/export/pdf")
+                        .param("template", "nope"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Unknown resume template"));
     }
 
     @Test
@@ -87,7 +111,7 @@ class TailoringExportControllerTest {
     @Test
     void gate_conflicts_map_to_409() throws Exception {
         doThrow(new TailoringConflictException("has changes still pending review — cannot export"))
-                .when(exportService).pdf(any());
+                .when(exportService).pdf(any(), any());
 
         mvc.perform(get("/api/v1/tailored/" + UUID.randomUUID() + "/export/pdf"))
                 .andExpect(status().isConflict())
@@ -97,7 +121,7 @@ class TailoringExportControllerTest {
     @Test
     void unknown_tailored_maps_to_404() throws Exception {
         doThrow(new TailoringNotFoundException("No tailored resume found for id x"))
-                .when(exportService).pdf(any());
+                .when(exportService).pdf(any(), any());
 
         mvc.perform(get("/api/v1/tailored/" + UUID.randomUUID() + "/export/pdf"))
                 .andExpect(status().isNotFound())
