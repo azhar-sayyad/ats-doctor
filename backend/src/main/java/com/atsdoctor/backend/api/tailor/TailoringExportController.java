@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -22,6 +23,11 @@ import java.util.UUID;
  * json reuses the GET /tailored/{id} shape. All formats share the export gate
  * (409 until every change is resolved and validation passed — {@link
  * ExportService#assertExportable}), 404 unknown.
+ *
+ * <p>Template selection (CL-020): an optional {@code ?template=slug} query
+ * param picks a style from the app-side catalog (resume-templates.yml,
+ * 400 unknown); without it the row's saved template is used, then the default
+ * {@code ats_clean}. Applies to pdf/docx/latex; json is unaffected.
  */
 
 @RestController
@@ -39,11 +45,12 @@ public class TailoringExportController {
 
     @GetMapping("/tailored/{tailoredId}/export/{format}")
     public ResponseEntity<?> export(@PathVariable("tailoredId") UUID tailoredId,
-                                    @PathVariable("format") String format) {
+                                    @PathVariable("format") String format,
+                                    @RequestParam(name = "template", required = false) String template) {
         return switch (format.toLowerCase()) {
-            case "pdf" -> artifact(exportService.pdf(tailoredId));
-            case "docx" -> artifact(exportService.docx(tailoredId));
-            case "latex" -> artifact(exportService.latex(tailoredId));
+            case "pdf" -> artifact(exportService.pdf(tailoredId, template));
+            case "docx" -> artifact(exportService.docx(tailoredId, template));
+            case "latex" -> artifact(exportService.latex(tailoredId, template));
             case "json" -> {
                 exportService.assertExportable(tailoredId);
                 yield ResponseEntity.ok()
