@@ -9,14 +9,17 @@ import { Alert, ToolbarButton, editorTextareaClass } from '../../../../component
 import { Loader2, Save, Wand2 } from 'lucide-react';
 
 interface Props {
-  tailoredId: string;
+  /** Id used by the default persistence (PUT /tailored/{id}/edit); ignored when onSave is given. */
+  docId?: string;
   initial: StructuredResume;
   onSaved: (updated: TailoredResume) => void;
   /** Live-preview feed: reports the parsed document model, or null while invalid. */
   onPreviewChange?: (doc: DocModel | null) => void;
+  /** Custom persistence; overrides the default tailored-resume endpoint. */
+  onSave?: (draft: StructuredResume) => Promise<unknown>;
 }
 
-export default function JsonEdit({ tailoredId, initial, onSaved, onPreviewChange }: Props) {
+export default function JsonEdit({ docId, initial, onSaved, onPreviewChange, onSave }: Props) {
   const [text, setText] = useState(() => JSON.stringify(initial, null, 2));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +47,11 @@ export default function JsonEdit({ tailoredId, initial, onSaved, onPreviewChange
     setError(null);
     setSaved(false);
     try {
-      const updated = await editTailoredDocument(tailoredId, parsed.value);
+      const updated = onSave
+        ? await onSave(parsed.value as StructuredResume)
+        : await editTailoredDocument(docId!, parsed.value);
       setSaved(true);
-      onSaved(updated);
+      onSaved(updated as TailoredResume);
     } catch (err) {
       setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
     } finally {
