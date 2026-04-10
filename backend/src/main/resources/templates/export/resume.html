@@ -3,17 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <title th:text="${title}">Candidate Resume</title>
-    <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 30px; color: #1e293b; font-size: 10pt; line-height: 1.4; }
-        h1 { font-size: 18pt; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 6px; }
-        .contact { font-size: 9pt; color: #475569; margin-bottom: 16px; }
-        .contact span { margin-right: 12px; }
-        h2 { font-size: 12pt; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin-top: 16px; margin-bottom: 8px; color: #0f172a; }
-        .meta { font-size: 8pt; color: #94a3b8; font-style: italic; margin-bottom: 12px; }
-        .heading { font-weight: bold; font-size: 10.5pt; color: #1e293b; margin-top: 10px; margin-bottom: 4px; }
-        ul { margin-top: 4px; margin-bottom: 10px; padding-left: 18px; }
-        li { margin-bottom: 3px; }
-        .skill-badge { display: inline-block; background-color: #f1f5f9; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; margin-right: 6px; margin-bottom: 6px; font-size: 8.5pt; }
+    <style th:inline="text">
+        [(${template_css})]
     </style>
 </head>
 <body>

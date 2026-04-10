@@ -2,6 +2,11 @@ package com.atsdoctor.backend.application.export;
 
 import com.atsdoctor.backend.application.tailoring.TailoringConflictException;
 import com.atsdoctor.backend.application.tailoring.TailoringNotFoundException;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.HtmlStyle;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.DocxStyle;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.LatexStyle;
+import com.atsdoctor.backend.infrastructure.export.ResumeTemplateCatalog.ResumeTemplate;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredChangeRepository;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResume;
 import com.atsdoctor.backend.infrastructure.persistence.TailoredResumeRepository;
@@ -56,15 +61,18 @@ public class ExportService {
 
     private final TailoredResumeRepository tailoredResumeRepository;
     private final TailoredChangeRepository tailoredChangeRepository;
+    private final ResumeTemplateCatalog templateCatalog;
     private final SpringTemplateEngine templateEngine;
     private final Path exportsRoot;
 
     public ExportService(TailoredResumeRepository tailoredResumeRepository,
                          TailoredChangeRepository tailoredChangeRepository,
+                         ResumeTemplateCatalog templateCatalog,
                          SpringTemplateEngine exportTemplateEngine,
                          @Value("${ats.doctor.storage.exports-dir:data/exports}") String exportsDir) {
         this.tailoredResumeRepository = tailoredResumeRepository;
         this.tailoredChangeRepository = tailoredChangeRepository;
+        this.templateCatalog = templateCatalog;
         this.templateEngine = exportTemplateEngine;
         this.exportsRoot = Path.of(exportsDir).toAbsolutePath().normalize();
     }
@@ -118,9 +126,15 @@ public class ExportService {
 
     @Transactional
     public byte[] html(UUID tailoredResumeId) {
+        return html(tailoredResumeId, null);
+    }
+
+    /** HTML export with an explicit template slug (CL-020); null/blank → the row's saved template. */
+    @Transactional
+    public byte[] html(UUID tailoredResumeId, String templateSlug) {
         TailoredResume tailored = require(tailoredResumeId);
         assertExportable(tailoredResumeId);
-        String html = render(modelOf(tailored));
+        String html = render(modelOf(tailored), resolveTemplate(tailored, templateSlug));
         tailored.setHtml(html);
         tailoredResumeRepository.save(tailored);
         return html.getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -128,9 +142,15 @@ public class ExportService {
 
     @Transactional
     public ExportArtifact pdf(UUID tailoredResumeId) throws ExportException {
+        return pdf(tailoredResumeId, null);
+    }
+
+    @Transactional
+    public ExportArtifact pdf(UUID tailoredResumeId, String templateSlug) throws ExportException {
         TailoredResume tailored = require(tailoredResumeId);
         assertExportable(tailoredResumeId);
-        String html = render(modelOf(tailored));
+        ResumeTemplate template = resolveTemplate(tailored, templateSlug);
+        String html = render(modelOf(tailored), template);
         byte[] content = renderPdf(html);
         Path stored = store(exportsRoot, tailoredResumeId, "pdf", content);
         tailored.setHtml(html);
@@ -141,9 +161,14 @@ public class ExportService {
 
     @Transactional
     public ExportArtifact docx(UUID tailoredResumeId) throws ExportException {
+        return docx(tailoredResumeId, null);
+    }
+
+    @Transactional
+    public ExportArtifact docx(UUID tailoredResumeId, String templateSlug) throws ExportException {
         TailoredResume tailored = require(tailoredResumeId);
         assertExportable(tailoredResumeId);
-        byte[] content = renderDocx(modelOf(tailored));
+        byte[] content = renderDocx(modelOf(tailored), resolveTemplate(tailored, templateSlug).docx());
         Path stored = store(exportsRoot, tailoredResumeId, "docx", content);
         tailored.setDocxPath(stored.toString());
         tailoredResumeRepository.save(tailored);
@@ -155,9 +180,15 @@ public class ExportService {
     /** LaTeX artifact (tailored edit workspace / Overleaf export): renders the same DocModel through the TEXT-mode {@code latex.tex} template. */
     @Transactional
     public ExportArtifact latex(UUID tailoredResumeId) throws ExportException {
+        return latex(tailoredResumeId, null);
+    }
+
+    @Transactional
+    public ExportArtifact latex(UUID tailoredResumeId, String templateSlug) throws ExportException {
         TailoredResume tailored = require(tailoredResumeId);
         assertExportable(tailoredResumeId);
-        String tex = templateEngine.process("latex", new Context(Locale.ROOT, latexModelMap(modelOf(tailored))));
+        String tex = templateEngine.process("latex", new Context(Locale.ROOT,
+                latexModelMap(modelOf(tailored), resolveTemplate(tailored, templateSlug).latex())));
         byte[] content = tex.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         store(exportsRoot, tailoredResumeId, "tex", content);
         return new ExportArtifact(
@@ -396,8 +427,25 @@ public class ExportService {
         return company + ", " + title;
     }
 
-    private String render(DocModel model) {
-        return templateEngine.process("resume", new Context(Locale.ROOT, modelMap(model)));
+    /**
+     * Resolve the template for a render: an explicit {@code ?template=} param
+     * wins (unknown slugs are rejected), otherwise the row's saved selection,
+     * otherwise the catalog default.
+     */
+    private ResumeTemplate resolveTemplate(TailoredResume tailored, String requested) {
+        if (requested != null && !requested.isBlank()) {
+            return templateCatalog.require(requested);
+        }
+        String saved = tailored.getTemplate();
+        return saved == null || saved.isBlank()
+                ? templateCatalog.require(ResumeTemplateCatalog.DEFAULT_TEMPLATE)
+                : templateCatalog.require(saved);
+    }
+
+    private String render(DocModel model, ResumeTemplate template) {
+        Map<String, Object> map = modelMap(model);
+        map.put("template_css", cssFor(template.html()));
+        return templateEngine.process("resume", new Context(Locale.ROOT, map));
     }
 
     private static Map<String, Object> modelMap(DocModel model) {
@@ -416,11 +464,64 @@ public class ExportService {
     }
 
     /**
+     * Build the {@code <style>} block inlined into the single export HTML
+     * template. The style values come from the selected template
+     * (resume-templates.yml); {@code ats_clean} reproduces the original
+     * pre-template stylesheet exactly.
+     */
+    private static String cssFor(HtmlStyle s) {
+        StringBuilder css = new StringBuilder();
+        css.append("body { font-family: ").append(s.bodyFont())
+                .append("; margin: 30px; color: ").append(s.textColor())
+                .append("; font-size: ").append(trim(s.bodySizePt())).append("pt")
+                .append("; line-height: ").append(trim(s.bodyLineHeight())).append("; }\n");
+        css.append("h1 { font-family: ").append(s.headingFont())
+                .append("; font-size: ").append(trim(s.titleSizePt())).append("pt")
+                .append("; margin-bottom: 4px; ")
+                .append(uppercaseRule(s.uppercaseTitle()))
+                .append("letter-spacing: ").append(trim(s.letterSpacing())).append("px; color: ")
+                .append(s.headingColor()).append("; border-bottom: 2px solid ").append(s.titleRuleColor())
+                .append("; padding-bottom: 6px; }\n");
+        css.append(".contact { font-size: 9pt; color: ").append(s.contactColor()).append("; margin-bottom: 16px; }\n");
+        css.append(".contact span { margin-right: 12px; }\n");
+        css.append("h2 { font-family: ").append(s.headingFont())
+                .append("; font-size: ").append(trim(s.sectionSizePt())).append("pt; ")
+                .append(uppercaseRule(s.uppercaseHeadings()))
+                .append("border-bottom: 1px solid ").append(s.sectionRuleColor())
+                .append("; padding-bottom: 3px; margin-top: 16px; margin-bottom: 8px; color: ")
+                .append(s.headingColor()).append("; }\n");
+        css.append(".meta { font-size: 8pt; color: ").append(s.metaColor())
+                .append("; font-style: italic; margin-bottom: 12px; }\n");
+        css.append(".heading { font-family: ").append(s.headingFont())
+                .append("; font-weight: bold; font-size: ").append(trim(s.headingSizePt()))
+                .append("pt; color: ").append(s.textColor())
+                .append("; margin-top: 10px; margin-bottom: 4px; }\n");
+        css.append("ul { margin-top: 4px; margin-bottom: 10px; padding-left: 18px; }\n");
+        css.append("li { margin-bottom: 3px; }\n");
+        css.append(".skill-badge { display: inline-block; background-color: ").append(s.badgeBg())
+                .append("; border: 1px solid ").append(s.badgeBorder())
+                .append("; padding: 2px 6px; border-radius: 4px; margin-right: 6px; margin-bottom: 6px; font-size: 8.5pt; }\n");
+        return css.toString();
+    }
+
+    private static String uppercaseRule(boolean enabled) {
+        return enabled ? "text-transform: uppercase; " : "";
+    }
+
+    /** 10.5 → "10.5", 10.0 → "10" (CSS-friendly pt values). */
+    private static String trim(float value) {
+        if (value == Math.floor(value)) {
+            return String.valueOf((int) value);
+        }
+        return String.valueOf(value);
+    }
+
+    /**
      * LaTeX-flavoured model map: every user string is escaped for the LaTeX
      * specials (\ & % $ # _ { } ~ ^) so the rendered .tex compiles cleanly.
      * Kept separate from {@link #modelMap} so the HTML template stays raw.
      */
-    private static Map<String, Object> latexModelMap(DocModel model) {
+    private static Map<String, Object> latexModelMap(DocModel model, LatexStyle style) {
         Map<String, Object> basics = new LinkedHashMap<>();
         if (model.basics() != null) {
             basics.put("email", latexEscape(model.basics().email()));
@@ -479,6 +580,8 @@ public class ExportService {
         map.put("projects", projects);
         map.put("education", education);
         map.put("generated_at", model.generatedAt());
+        map.put("latex_font_size", style.fontSize());
+        map.put("latex_margin", trim(style.marginIn()) + "in");
         return map;
     }
 
@@ -510,10 +613,10 @@ public class ExportService {
         }
     }
 
-    private static byte[] renderDocx(DocModel model) throws ExportException {
+    private static byte[] renderDocx(DocModel model, DocxStyle style) throws ExportException {
         try (XWPFDocument doc = new XWPFDocument();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            heading(doc, model.title(), 16);
+            heading(doc, model.title(), style.titleSizePt(), style.headingFont(), style.headingColor(), style.uppercaseHeadings());
             if (model.basics() != null) {
                 StringBuilder contact = new StringBuilder();
                 if (model.basics().email() != null && !model.basics().email().isEmpty()) contact.append(model.basics().email());
@@ -521,50 +624,50 @@ public class ExportService {
                 if (model.basics().location() != null && !model.basics().location().isEmpty()) contact.append(" | ").append(model.basics().location());
                 if (model.basics().linkedin() != null && !model.basics().linkedin().isEmpty()) contact.append(" | ").append(model.basics().linkedin());
                 if (model.basics().github() != null && !model.basics().github().isEmpty()) contact.append(" | ").append(model.basics().github());
-                if (contact.length() > 0) meta(doc, contact.toString());
+                if (contact.length() > 0) meta(doc, contact.toString(), style.bodyFont());
             }
-            meta(doc, "Generated by ATS Doctor on " + model.generatedAt());
+            meta(doc, "Generated by ATS Doctor on " + model.generatedAt(), style.bodyFont());
 
             if (model.summary() != null) {
-                heading(doc, "Professional Summary", 12);
-                body(doc, model.summary());
+                sectionHeading(doc, "Professional Summary", style);
+                body(doc, model.summary(), style.bodyFont());
             }
 
             if (model.skills() != null && !model.skills().isEmpty()) {
-                heading(doc, "Technical Skills", 12);
+                sectionHeading(doc, "Technical Skills", style);
                 StringBuilder sb = new StringBuilder();
                 for (Skill s : model.skills()) {
                     if (sb.length() > 0) sb.append(", ");
                     sb.append(s.name());
                 }
-                body(doc, sb.toString());
+                body(doc, sb.toString(), style.bodyFont());
             }
 
             if (model.sections() != null && !model.sections().isEmpty()) {
-                heading(doc, "Work Experience", 12);
+                sectionHeading(doc, "Work Experience", style);
                 for (Section section : model.sections()) {
-                    heading(doc, section.heading(), 11);
+                    heading(doc, section.heading(), style.headingSizePt(), style.headingFont(), style.headingColor(), style.uppercaseHeadings());
                     for (String bullet : section.bullets()) {
-                        bullet(doc, bullet);
+                        bullet(doc, bullet, style.bodyFont());
                     }
                 }
             }
 
             if (model.projects() != null && !model.projects().isEmpty()) {
-                heading(doc, "Projects", 12);
+                sectionHeading(doc, "Projects", style);
                 for (Project project : model.projects()) {
-                    heading(doc, project.name(), 11);
+                    heading(doc, project.name(), style.headingSizePt(), style.headingFont(), style.headingColor(), style.uppercaseHeadings());
                     if (project.description() != null && !project.description().isEmpty()) {
-                        body(doc, project.description());
+                        body(doc, project.description(), style.bodyFont());
                     }
                 }
             }
 
             if (model.education() != null && !model.education().isEmpty()) {
-                heading(doc, "Education", 12);
+                sectionHeading(doc, "Education", style);
                 for (Education edu : model.education()) {
-                    heading(doc, edu.institution(), 11);
-                    body(doc, edu.degree() + " - " + edu.field());
+                    heading(doc, edu.institution(), style.headingSizePt(), style.headingFont(), style.headingColor(), style.uppercaseHeadings());
+                    body(doc, edu.degree() + " - " + edu.field(), style.bodyFont());
                 }
             }
 
@@ -575,32 +678,44 @@ public class ExportService {
         }
     }
 
-    private static void heading(XWPFDocument doc, String text, int size) {
+    private static void sectionHeading(XWPFDocument doc, String text, DocxStyle style) {
+        heading(doc, text, style.sectionSizePt(), style.headingFont(), style.headingColor(), style.uppercaseHeadings());
+    }
+
+    private static void heading(XWPFDocument doc, String text, float size, String font, String color, boolean uppercase) {
         XWPFParagraph p = doc.createParagraph();
         p.setAlignment(ParagraphAlignment.LEFT);
         XWPFRun run = p.createRun();
         run.setBold(true);
         run.setFontSize(size);
-        run.setText(text);
+        run.setFontFamily(font);
+        run.setColor(color);
+        run.setText(uppercase ? text.toUpperCase(java.util.Locale.ROOT) : text);
     }
 
-    private static void meta(XWPFDocument doc, String text) {
+    private static void meta(XWPFDocument doc, String text, String font) {
         XWPFParagraph p = doc.createParagraph();
         XWPFRun run = p.createRun();
         run.setItalic(true);
         run.setFontSize(9);
+        run.setFontFamily(font);
         run.setText(text);
     }
 
-    private static void body(XWPFDocument doc, String text) {
+    private static void body(XWPFDocument doc, String text, String font) {
         XWPFParagraph p = doc.createParagraph();
-        p.createRun().setText(text);
+        XWPFRun run = p.createRun();
+        run.setFontFamily(font);
+        run.setFontSize(11);
+        run.setText(text);
     }
 
-    private static void bullet(XWPFDocument doc, String text) {
+    private static void bullet(XWPFDocument doc, String text, String font) {
         XWPFParagraph p = doc.createParagraph();
         p.setIndentationLeft(360);
-        p.createRun().setText("\u2022 " + text);
+        XWPFRun run = p.createRun();
+        run.setFontFamily(font);
+        run.setText("\u2022 " + text);
     }
 
     private static Path store(Path root, UUID id, String ext, byte[] content) throws ExportException {
