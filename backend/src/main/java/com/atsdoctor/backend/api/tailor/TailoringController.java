@@ -118,6 +118,18 @@ public class TailoringController {
     }
 
     /**
+     * Persist the export template selection (CL-020): body {"template":
+     * "ats_clean"|"modern_minimal"|...} — slug validated against the app-side
+     * catalog (400 unknown), stored so exports default to it. 404 unknown
+     * tailored resume.
+     */
+    @PutMapping("/tailored/{tailoredId}/template")
+    public Map<String, Object> setTemplate(@PathVariable("tailoredId") UUID tailoredId,
+                                           @RequestBody TemplateRequest body) {
+        return TailoredResponse.of(tailoringService.setTemplate(tailoredId, body.template())).toMap();
+    }
+
+    /**
      * Review one change (§8.2): body {"action": "accept"|"reject"|"edit"|"regenerate",
      * "new_text"?: "..."} — only PENDING rows transition; edit requires a non-blank
      * replacement; edit/regenerate revalidate the resume in place. 404 when the
@@ -147,5 +159,10 @@ public class TailoringController {
     public record ReviewRequest(
             @com.fasterxml.jackson.annotation.JsonProperty("action") String action,
             @com.fasterxml.jackson.annotation.JsonProperty("new_text") String newText) {
+    }
+
+    /** CL-020 export-template selection body. */
+    public record TemplateRequest(
+            @com.fasterxml.jackson.annotation.JsonProperty("template") String template) {
     }
 }
