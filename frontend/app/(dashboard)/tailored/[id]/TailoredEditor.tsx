@@ -10,14 +10,17 @@ import { Alert, ToolbarButton } from '../../../../components/ui';
 import { Loader2, Save, X } from 'lucide-react';
 
 interface Props {
-  tailoredId: string;
+  /** Id used by the default persistence (PUT /tailored/{id}/edit); ignored when onSave is given. */
+  docId?: string;
   initial: StructuredResume;
   onSaved: (updated: TailoredResume) => void;
   /** Live-preview feed: reports the document model of the current draft. */
   onPreviewChange?: (doc: DocModel | null) => void;
+  /** Custom persistence; overrides the default tailored-resume endpoint. */
+  onSave?: (draft: StructuredResume) => Promise<unknown>;
 }
 
-export default function TailoredEditor({ tailoredId, initial, onSaved, onPreviewChange }: Props) {
+export default function TailoredEditor({ docId, initial, onSaved, onPreviewChange, onSave }: Props) {
   const [draft, setDraft] = useState<StructuredResume>(() => cloneResume(initial));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,9 +49,9 @@ export default function TailoredEditor({ tailoredId, initial, onSaved, onPreview
     setError(null);
     setSaved(false);
     try {
-      const updated = await editTailoredDocument(tailoredId, draft);
+      const updated = onSave ? await onSave(draft) : await editTailoredDocument(docId!, draft);
       setSaved(true);
-      onSaved(updated);
+      onSaved(updated as TailoredResume);
     } catch (err) {
       setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
     } finally {
