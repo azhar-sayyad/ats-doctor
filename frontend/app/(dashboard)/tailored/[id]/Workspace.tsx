@@ -1,7 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiGet, apiPost, ApiError, API_BASE_URL, type Analysis, type Job, type ResumeVersion } from '../../../../lib/api';
+import {
+  apiGet,
+  apiPost,
+  ApiError,
+  exportTailoredUrl,
+  getResumeTemplates,
+  setTailoredTemplate,
+  type Analysis,
+  type Job,
+  type ResumeTemplateInfo,
+  type ResumeVersion,
+} from '../../../../lib/api';
 import type { StructuredResume, TailoredChange, TailoredResume, ReviewBusy } from '../types';
 import { buildDocumentModel, computeAnalytics, parseStructured } from '../../../../lib/resumeModel';
 import DocumentViewer, { rewrittenChangeCount } from './DocumentViewer';
@@ -64,6 +75,8 @@ export default function Workspace({
   const [jdOpen, setJdOpen] = useState(false);
   const [view, setView] = useState<'review' | 'edit'>('review');
   const [reviewTab, setReviewTab] = useState<Tab>('document');
+  const [templates, setTemplates] = useState<ResumeTemplateInfo[]>([]);
+  const [templateBusy, setTemplateBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -74,6 +87,14 @@ export default function Workspace({
   }, []);
 
   useEffect(() => stopPolling, [stopPolling]);
+
+  useEffect(() => {
+    getResumeTemplates()
+      .then(setTemplates)
+      .catch(() => {
+        // template catalog is a progressive enhancement — hide the selector on failure
+      });
+  }, []);
 
   useEffect(() => {
     if (!ACTIVE.has(tailored.state)) return;
@@ -192,7 +213,20 @@ export default function Workspace({
       void checkValidation();
       return;
     }
-    window.open(`${API_BASE_URL}/tailored/${tailoredId}/export/${format}`, '_blank');
+    window.open(exportTailoredUrl(tailoredId, format, tailored.template), '_blank');
+  }
+
+  async function handleTemplateChange(slug: string) {
+    setTemplateBusy(true);
+    setError(null);
+    try {
+      const updated = await setTailoredTemplate(tailoredId, slug);
+      setTailored(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail ?? err.message : String(err));
+    } finally {
+      setTemplateBusy(false);
+    }
   }
 
   function handleDocumentSaved(updated: TailoredResume) {
@@ -249,6 +283,24 @@ export default function Workspace({
               </button>
             );
           })}
+          {templates.length > 0 && !active && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-faint">Template</span>
+              <select
+                value={tailored.template}
+                onChange={(e) => handleTemplateChange(e.target.value)}
+                disabled={templateBusy}
+                className="rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-xs font-semibold text-foreground focus:border-brand focus:outline-none disabled:opacity-50"
+                aria-label="Export template"
+              >
+                {templates.map((t) => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <ToolbarButton variant="primary" size="sm" onClick={() => handleExport('pdf')}>
             <Download className="h-3.5 w-3.5" />
             Download PDF
@@ -299,7 +351,7 @@ export default function Workspace({
 
       {view === 'edit' ? (
         <EditWorkspace
-          tailoredId={tailoredId}
+          docId={tailoredId}
           doc={doc}
           onDocumentSaved={handleDocumentSaved}
         />
